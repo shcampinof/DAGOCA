@@ -2,6 +2,8 @@
 
 Prototipo académico e interactivo de supervisión para una cervecería artesanal. Simula una producción de dos lotes semanales de aproximadamente 481 L, desde la preparación de agua hasta el embotellado y la limpieza CIP.
 
+El resumen de planta utiliza un mímico SCADA tradicional: depósitos metálicos, niveles, colectores, tuberías, válvulas, bombas, pilotos, placas de identificación y displays de instrumentación. Todos estos elementos reaccionan al mismo estado de simulación.
+
 > **Importante:** este software no controla equipos reales, no implementa funciones instrumentadas de seguridad y no sustituye protecciones eléctricas, mecánicas o de presión. Todos los valores están marcados y tratados como parámetros DEMO.
 
 ## Ejecución local

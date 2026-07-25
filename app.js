@@ -49,13 +49,97 @@ function equipmentCard(equipment, displayName = equipment.tag) {
   </button>`;
 }
 
+function classicUnit(equipment, options = {}) {
+  const {
+    compact = false,
+    shape = equipment.type === "filter" ? "filter" : equipment.type === "cooler" ? "cooler" : "tank",
+    process = "MOSTO",
+    showGauge = true
+  } = options;
+  const status = equipment.status === "Operando" ? "RUN" : equipment.status === "Alarma" ? "FALLA" : equipment.available ? "LISTO" : equipment.status.toUpperCase();
+  const statusClass = equipment.status === "Operando" ? "run" : equipment.status === "Alarma" ? "fault" : equipment.available ? "ready" : "stopped";
+  const secondary = equipment.ph != null ? `pH ${equipment.ph}` : equipment.density != null ? `${equipment.density} SG` : equipment.turbidity != null ? `${equipment.turbidity} NTU` : `${equipment.pressure ?? 0} bar`;
+  return `<button class="classic-unit ${compact ? "compact" : ""} ${shape} ${equipmentStatusClass(equipment)}" data-equipment="${equipment.tag}" aria-label="${equipment.tag}, ${equipment.name}, ${equipment.status}">
+    <span class="unit-title">${equipment.name}</span>
+    <span class="vessel-wrap">
+      <span class="vessel-top"></span>
+      <span class="vessel-body">
+        <i class="liquid ${process.toLowerCase()}" style="height:${equipment.level}%"></i>
+        ${shape === "tank" ? '<i class="agitator">↻</i>' : ""}
+        ${shape === "filter" ? '<i class="filter-plates"></i>' : ""}
+        ${shape === "cooler" ? '<i class="cooler-coil">〰</i>' : ""}
+      </span>
+      <span class="vessel-cone"></span><span class="leg left"></span><span class="leg right"></span>
+    </span>
+    ${showGauge ? `<span class="classic-gauge"><i style="height:${equipment.level}%"></i><b>100</b><b>50</b><b>0</b></span>` : ""}
+    <span class="unit-tag">${equipment.tag}</span>
+    <span class="unit-readings"><b>${equipment.temperature?.toFixed?.(1) ?? equipment.temperature} °C</b><small>${secondary}</small></span>
+    <span class="classic-status ${statusClass}"><i></i>${status}</span>
+  </button>`;
+}
+
 function renderMimic() {
   const get = tag => simulator.equipment.get(tag);
-  $("#primary-line").innerHTML = ["T1", "T2", "T3", "T4", "T5", "IC1"].map(tag => equipmentCard(get(tag), tag)).join("");
-  $("#fermenter-grid").innerHTML = [...simulator.equipment.values()].filter(e => e.tag.startsWith("TF-")).map(equipment => equipmentCard(equipment)).join("");
-  $("#maturation-grid").innerHTML = [...simulator.equipment.values()].filter(e => e.tag.startsWith("TM-")).map(equipment => equipmentCard(equipment)).join("");
-  $("#final-line").innerHTML = ["T7", "EMB-01"].map(tag => equipmentCard(get(tag), tag === "EMB-01" ? "EMBOTELLADO" : tag)).join("");
+  const fermenters = [...simulator.equipment.values()].filter(e => e.tag.startsWith("TF-"));
+  const maturation = [...simulator.equipment.values()].filter(e => e.tag.startsWith("TM-"));
+  const active = simulator.activeStage;
+  $("#plant-mimic").innerHTML = `
+    <div class="classic-board ${simulator.running ? "system-running" : ""}">
+      <div class="classic-board-head">
+        <strong>DAGOCA · SINÓPTICO GENERAL DE PROCESO</strong>
+        <div class="pilot-bank">
+          <span><i class="${simulator.running ? "green on" : "green"}"></i>MARCHA</span>
+          <span><i class="${simulator.emergency ? "red on" : "red"}"></i>FALLO</span>
+          <span><i class="${active >= 0 ? "amber on" : "amber"}"></i>PROCESO</span>
+        </div>
+      </div>
+      <svg class="process-pipes" viewBox="0 0 1200 720" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="pipeMetal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fafafa"/><stop offset=".45" stop-color="#777"/><stop offset=".7" stop-color="#f5f5f5"/><stop offset="1" stop-color="#555"/></linearGradient>
+        </defs>
+        <path class="pipe" d="M28 184H108 M214 184H264 M382 184H432 M550 184H600 M718 184H770 M886 184H926"/>
+        <path class="pipe" d="M1040 184H1110V328H300"/>
+        <path class="pipe ${active >= 5 && active <= 7 ? "product-flow" : ""}" d="M300 328V350 M405 328V350 M510 328V350 M615 328V350 M720 328V350"/>
+        <path class="pipe" d="M300 523V548H900V328H1015"/>
+        <path class="pipe ${active >= 7 && active <= 10 ? "product-flow" : ""}" d="M790 548V568 M895 548V568 M1000 548V568 M1105 548V568"/>
+        <path class="pipe" d="M1015 328H1145V610H970"/>
+        <path class="cip-pipe ${cipRunning ? "cip-flowing" : ""}" d="M46 682H1130V635 M190 682V610 M585 682V525 M900 682V610"/>
+      </svg>
+      <div class="process-label water-label">1 · PREPARACIÓN DE AGUA</div>
+      <div class="process-label brew-label">2 · ELABORACIÓN</div>
+      <div class="process-label ferm-label">3 · FERMENTACIÓN</div>
+      <div class="process-label mat-label">4 · MADURACIÓN / ACABADO</div>
+      <div class="primary-equipment">
+        ${classicUnit(get("T1"), { shape: "filter", process: "agua" })}
+        ${classicUnit(get("T2"), { process: "agua" })}
+        ${classicUnit(get("T3"), { process: "mosto" })}
+        ${classicUnit(get("T4"), { shape: "filter", process: "mosto" })}
+        ${classicUnit(get("T5"), { process: "mosto" })}
+        ${classicUnit(get("IC1"), { shape: "cooler", process: "refrigerante" })}
+      </div>
+      <div class="valve-row top-valves">
+        ${["XV-101", "XV-201", "XV-301"].map((tag, index) => `<button class="valve-symbol ${simulator.running && active >= index * 2 ? "open" : ""}" data-equipment="${tag}" title="${tag}"><i></i><b>${tag}</b></button>`).join("")}
+      </div>
+      <div class="bank fermenter-bank">
+        <div class="bank-header"><b>COLECTOR TF</b><span>Selección automática de fermentador</span></div>
+        <div class="classic-tank-row">${fermenters.map(e => classicUnit(e, { compact: true, process: "cerveza", showGauge: false })).join("")}</div>
+      </div>
+      <div class="bank maturation-bank">
+        <div class="bank-header"><b>COLECTOR TM</b><span>Transferencia a maduración</span></div>
+        <div class="classic-tank-row">${maturation.map(e => classicUnit(e, { compact: true, process: "cerveza", showGauge: false })).join("")}</div>
+      </div>
+      <div class="final-skid">
+        ${classicUnit(get("T7"), { compact: true, shape: "filter", process: "cerveza", showGauge: false })}
+        <div class="pump-set">
+          ${["B1", "B2", "B3"].map((tag, index) => `<button class="pump-symbol ${simulator.running && active >= index * 4 ? "run" : ""}" data-equipment="${tag}"><i>▶</i><b>${tag}</b><small>${get(tag).status}</small></button>`).join("")}
+        </div>
+        <button class="bottling-machine ${active === 11 ? "active" : ""}" data-equipment="EMB-01"><i>▥ ▥ ▥</i><b>EMBOTELLADO</b><small>EMB-01 · ${get("EMB-01").status}</small></button>
+      </div>
+      <div class="cip-classic"><b>CIP-01</b><span class="cip-reservoir">CIP</span><span>RETORNO DE LIMPIEZA</span></div>
+      <div class="classic-disclaimer">SIMULACIÓN ACADÉMICA · LOS VALORES NO SON PARÁMETROS DE INGENIERÍA</div>
+    </div>`;
   $$(".equipment").forEach(button => button.addEventListener("click", () => openEquipment(button.dataset.equipment)));
+  $$("#plant-mimic [data-equipment]").forEach(button => button.addEventListener("click", () => openEquipment(button.dataset.equipment)));
 }
 
 function renderMetrics() {
