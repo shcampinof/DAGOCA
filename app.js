@@ -82,16 +82,24 @@ function renderMimic() {
   $("#plant-mimic").innerHTML = `
     <div class="classic-board ${simulator.running ? "system-running" : ""}">
       <div class="classic-board-head">
-        <strong>DAGOCA · SINÓPTICO GENERAL DE PROCESO</strong>
+        <strong>DAGOCA · DISTRIBUCIÓN GENERAL DE PLANTA</strong>
         <div class="pilot-bank">
           <span><i class="${simulator.running ? "green on" : "green"}"></i>MARCHA</span>
           <span><i class="${simulator.emergency ? "red on" : "red"}"></i>FALLO</span>
           <span><i class="${active >= 0 ? "amber on" : "amber"}"></i>PROCESO</span>
         </div>
       </div>
+      <div class="plant-zone zone-utilities"><span>ÁREA 01 · SERVICIOS Y AGUA</span></div>
+      <div class="plant-zone zone-brewhouse"><span>ÁREA 02 · SALA DE COCCIÓN</span></div>
+      <div class="plant-zone zone-cold"><span>ÁREA 03 · ENFRIAMIENTO</span></div>
+      <div class="plant-zone zone-fermentation"><span>ÁREA 04 · BODEGA DE FERMENTACIÓN</span></div>
+      <div class="plant-zone zone-maturation"><span>ÁREA 05 · MADURACIÓN</span></div>
+      <div class="plant-zone zone-packaging"><span>ÁREA 06 · FILTRADO Y EMPAQUE</span></div>
       <svg class="process-pipes" viewBox="0 0 1200 720" preserveAspectRatio="none" aria-hidden="true">
         <defs>
           <linearGradient id="pipeMetal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fafafa"/><stop offset=".45" stop-color="#777"/><stop offset=".7" stop-color="#f5f5f5"/><stop offset="1" stop-color="#555"/></linearGradient>
+          <marker id="productArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#8b5b22"/></marker>
+          <marker id="waterArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#257b8b"/></marker>
         </defs>
         <path class="pipe" d="M28 184H108 M214 184H264 M382 184H432 M550 184H600 M718 184H770 M886 184H926"/>
         <path class="pipe" d="M1040 184H1110V328H300"/>
@@ -100,11 +108,13 @@ function renderMimic() {
         <path class="pipe ${active >= 7 && active <= 10 ? "product-flow" : ""}" d="M790 548V568 M895 548V568 M1000 548V568 M1105 548V568"/>
         <path class="pipe" d="M1015 328H1145V610H970"/>
         <path class="cip-pipe ${cipRunning ? "cip-flowing" : ""}" d="M46 682H1130V635 M190 682V610 M585 682V525 M900 682V610"/>
+        <path class="route-direction water" d="M214 184H255" marker-end="url(#waterArrow)"/>
+        <path class="route-direction product" d="M382 184H423 M550 184H591 M718 184H761 M886 184H917" marker-end="url(#productArrow)"/>
+        <path class="route-direction product" d="M1090 250V312H910" marker-end="url(#productArrow)"/>
+        <path class="route-direction product" d="M580 548H875" marker-end="url(#productArrow)"/>
       </svg>
-      <div class="process-label water-label">1 · PREPARACIÓN DE AGUA</div>
-      <div class="process-label brew-label">2 · ELABORACIÓN</div>
-      <div class="process-label ferm-label">3 · FERMENTACIÓN</div>
-      <div class="process-label mat-label">4 · MADURACIÓN / ACABADO</div>
+      <div class="route-tag water-route">AGUA DE PROCESO →</div>
+      <div class="route-tag product-route">MOSTO / PRODUCTO →</div>
       <div class="primary-equipment">
         ${classicUnit(get("T1"), { shape: "filter", process: "agua" })}
         ${classicUnit(get("T2"), { process: "agua" })}
@@ -132,7 +142,6 @@ function renderMimic() {
         <button class="bottling-machine ${active === 11 ? "active" : ""}" data-equipment="EMB-01"><i>▥ ▥ ▥</i><b>EMBOTELLADO</b><small>EMB-01 · ${get("EMB-01").status}</small></button>
       </div>
       <div class="cip-classic"><b>CIP-01</b><span class="cip-reservoir">CIP</span><span>RETORNO DE LIMPIEZA</span></div>
-      <div class="classic-disclaimer">SIMULACIÓN ACADÉMICA · LOS VALORES NO SON PARÁMETROS DE INGENIERÍA</div>
     </div>`;
   $$(".equipment").forEach(button => button.addEventListener("click", () => openEquipment(button.dataset.equipment)));
   $$("#plant-mimic [data-equipment]").forEach(button => button.addEventListener("click", () => openEquipment(button.dataset.equipment)));
@@ -173,7 +182,7 @@ function renderBatches() {
     <td>${batch.startedAt ? new Date(batch.startedAt).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "—"}</td>
     <td><span class="badge ${batch.status === "En proceso" ? "Reconocida" : "Normalizada"}">${batch.stage}</span></td>
     <td>${formatTime(batch.elapsed)}</td><td>${batch.fermenter} → ${batch.maturation}</td>
-  </tr>`).join("") || `<tr><td colspan="7" class="empty-row">No hay lotes. Cree el primero para iniciar la demostración.</td></tr>`;
+  </tr>`).join("") || `<tr><td colspan="7" class="empty-row">No hay lotes. Cree el primero para iniciar la producción.</td></tr>`;
 }
 
 function renderRecipes() {
@@ -191,13 +200,13 @@ function renderRecipes() {
 function editRecipe(name) {
   if (role !== "Supervisor") return toast("Interlock de permisos: se requiere rol Supervisor.", "error");
   const recipe = demoConfig.recipes[name];
-  const value = prompt(`Temperatura de maceración DEMO para ${name} (°C):`, recipe.mashTemp);
+  const value = prompt(`Temperatura de maceración para ${name} (°C):`, recipe.mashTemp);
   if (value == null) return;
   const number = Number(value);
   if (!Number.isFinite(number) || number < 40 || number > 90) return toast("Valor fuera del rango de simulación 40–90 °C.", "error");
   recipe.mashTemp = number;
   safeStore("dagoca-recipes", JSON.stringify(demoConfig.recipes));
-  renderRecipes(); toast(`Parámetro DEMO de ${name} actualizado.`);
+  renderRecipes(); toast(`Parámetro de simulación de ${name} actualizado.`);
 }
 
 function renderGrafcet() {
@@ -314,7 +323,7 @@ function openEquipment(tag) {
     <button class="btn" data-manual-command="valve" data-target="${equipment.tag}" ${simulator.mode !== "manual" || simulator.emergency ? "disabled" : ""}>Conmutar válvula</button>
     <button class="btn" data-manual-command="pump" data-target="${equipment.tag}" ${simulator.mode !== "manual" || simulator.emergency || !equipment.clean ? "disabled" : ""}>Conmutar bomba</button>
   </div>
-  <p class="engineering-note" style="margin-top:12px">La HMI demo no sustituye protecciones mecánicas de presión ni circuitos instrumentados de seguridad.</p>`;
+  <p class="engineering-note" style="margin-top:12px">La HMI no sustituye protecciones mecánicas de presión ni circuitos instrumentados de seguridad.</p>`;
   $("#equipment-drawer").classList.add("open");
   $("#equipment-drawer").setAttribute("aria-hidden", "false");
   $$("[data-manual-command]").forEach(button => button.addEventListener("click", () => manualCommand(button.dataset.manualCommand, button.dataset.target)));
@@ -422,7 +431,7 @@ function initControls() {
   $("#new-batch-btn").addEventListener("click", () => { populateBatchForm(); $("#batch-dialog").showModal(); });
   $("#batch-form").addEventListener("submit", submitBatch);
   $("#role-select").value = role;
-  $("#role-select").addEventListener("change", event => { role = event.target.value; safeStore("dagoca-role", role); renderRecipes(); toast(`Rol demo cambiado a ${role}.`); });
+  $("#role-select").addEventListener("change", event => { role = event.target.value; safeStore("dagoca-role", role); renderRecipes(); toast(`Rol cambiado a ${role}.`); });
   $("#theme-toggle").addEventListener("click", () => {
     const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = theme; safeStore("dagoca-theme-v2", theme);

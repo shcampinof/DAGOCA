@@ -6,7 +6,7 @@ El resumen de planta utiliza un mímico SCADA tradicional: depósitos metálicos
 
 La interfaz utiliza IBM Plex Sans e IBM Plex Mono, tipografías abiertas bajo licencia SIL Open Font License. Si no existe conexión para cargarlas desde Google Fonts, se aplican fuentes de sistema compatibles.
 
-> **Importante:** este software no controla equipos reales, no implementa funciones instrumentadas de seguridad y no sustituye protecciones eléctricas, mecánicas o de presión. Todos los valores están marcados y tratados como parámetros DEMO.
+> **Importante:** este software no controla equipos reales, no implementa funciones instrumentadas de seguridad y no sustituye protecciones eléctricas, mecánicas o de presión. Todos los valores son parámetros de simulación.
 
 ## Ejecución local
 
@@ -28,8 +28,8 @@ Las tendencias cargan Chart.js desde CDN. Si el navegador bloquea ese recurso al
 2. Pulse **Iniciar**. En automático, la secuencia avanza cuando se satisfacen sus condiciones simuladas.
 3. Abra **GRAFCET** para observar el paso activo, las transiciones y la causa exacta de cualquier espera.
 4. Active **Modo paso a paso** si desea aprobar cada transición manualmente.
-5. Revise **Tendencias**, cambie el tag y el rango, pause la actualización o exporte el histórico DEMO a CSV.
-6. En **Alarmas**, genere eventos demo, aplique filtros y reconózcalos. Reconocer no normaliza la condición.
+5. Revise **Tendencias**, cambie el tag y el rango, pause la actualización o exporte el histórico a CSV.
+6. En **Alarmas**, genere eventos, aplique filtros y reconózcalos. Reconocer no normaliza la condición.
 7. Use la parada de emergencia para comprobar el enclavamiento y la baliza crítica; luego pulse **Reset**.
 8. Al terminar un lote, seleccione los equipos sucios en **Limpieza CIP** y ejecute el ciclo.
 
@@ -50,7 +50,7 @@ La secuencia está acelerada para demostración. Fermentación y maduración no 
 └── README.md
 ```
 
-## Configuración demo
+## Configuración de la simulación
 
 La configuración central está en el objeto `demoConfig` al inicio de `simulator.js`.
 
@@ -65,7 +65,7 @@ plant: {
 
 No hay vistas acopladas al valor cinco; los colectores y selectores se generan desde esa configuración.
 
-Las recetas `Sabor A` y `Sabor B`, los setpoints y los límites de tendencia también están en `demoConfig`. En la interfaz, un usuario con rol demo **Supervisor** puede modificar la temperatura de maceración. La preferencia se conserva en `localStorage`.
+Las recetas `Sabor A` y `Sabor B`, los setpoints y los límites de tendencia también están en `demoConfig`. En la interfaz, un usuario con rol **Supervisor** puede modificar la temperatura de maceración. La preferencia se conserva en `localStorage`.
 
 ## Persistencia
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Prototipo académico SCADA para una cervecería artesanal DAGOCA.">
+  <meta name="description" content="Sistema SCADA de supervisión para una cervecería artesanal DAGOCA.">
   <title>DAGOCA · Sistema SCADA</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
@@ -32,10 +32,6 @@
         <button class="nav-item" data-view="alarms"><span>AL</span>Alarmas <b id="alarm-count">0</b></button>
         <button class="nav-item" data-view="cip"><span>CP</span>Limpieza CIP</button>
       </nav>
-      <div class="sidebar-foot">
-        <div class="connection"><i></i><span>SIM-PLC conectado</span></div>
-        <small>Prototipo académico · DEMO</small>
-      </div>
     </aside>
 
     <div class="workspace">
@@ -117,9 +113,9 @@
               </table></div>
             </article>
             <aside class="panel recipe-panel">
-              <div class="panel-heading"><div><p class="eyebrow">DEMO EDITABLE</p><h2>Parámetros de simulación</h2></div></div>
+              <div class="panel-heading"><div><p class="eyebrow">CONFIGURACIÓN</p><h2>Parámetros de simulación</h2></div></div>
               <div id="recipe-cards"></div>
-              <p class="engineering-note">⚠ Valores únicamente demostrativos. Requieren validación de ingeniería antes de cualquier uso real.</p>
+              <p class="engineering-note">⚠ Valores de simulación. Requieren validación de ingeniería antes de cualquier uso real.</p>
             </aside>
           </div>
         </section>
@@ -137,7 +133,7 @@
 
         <section class="view" id="view-trends" data-title="Tendencias e históricos">
           <div class="panel trend-panel">
-            <div class="panel-heading"><div><p class="eyebrow">HISTÓRICOS</p><h2>Variables de proceso <span class="demo-badge">DEMO</span></h2></div><div class="trend-actions"><button class="btn" id="pause-chart">Ⅱ Pausar</button><button class="btn" id="export-csv">⇩ Exportar CSV</button></div></div>
+            <div class="panel-heading"><div><p class="eyebrow">HISTÓRICOS</p><h2>Variables de proceso</h2></div><div class="trend-actions"><button class="btn" id="pause-chart">Ⅱ Pausar</button><button class="btn" id="export-csv">⇩ Exportar CSV</button></div></div>
             <div class="chart-toolbar">
               <label>Tag<select id="tag-select"></select></label>
               <label>Rango<select id="range-select"><option value="15">15 min</option><option value="60">1 h</option><option value="480">8 h</option><option value="1440">24 h</option><option value="batch">Lote completo</option></select></label>
@@ -151,7 +147,7 @@
         <section class="view" id="view-alarms" data-title="Alarmas">
           <div class="alarm-cards" id="alarm-summary"></div>
           <div class="panel">
-            <div class="panel-heading"><div><p class="eyebrow">GESTIÓN DE EVENTOS</p><h2>Alarmas activas e históricas</h2></div><button class="btn" id="demo-alarm-btn">＋ Generar alarma demo</button></div>
+            <div class="panel-heading"><div><p class="eyebrow">GESTIÓN DE EVENTOS</p><h2>Alarmas activas e históricas</h2></div><button class="btn" id="demo-alarm-btn">＋ Generar alarma</button></div>
             <div class="filters">
               <label>Prioridad<select id="alarm-priority"><option value="">Todas</option><option>Crítica</option><option>Alta</option><option>Media</option><option>Informativa</option></select></label>
               <label>Equipo<select id="alarm-equipment"><option value="">Todos</option></select></label>

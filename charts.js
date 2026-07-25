@@ -112,10 +112,10 @@ class TrendManager {
 
   exportCsv(range) {
     const meta = this.config.tags[this.selectedTag];
-    const rows = [["timestamp", "tag", `value_${meta.unit}`, "demo"], ...this.filtered(this.selectedTag, range).map(point => [new Date(point.x).toISOString(), this.selectedTag, point.y, true])];
+    const rows = [["timestamp", "tag", `value_${meta.unit}`], ...this.filtered(this.selectedTag, range).map(point => [new Date(point.x).toISOString(), this.selectedTag, point.y])];
     const csv = rows.map(row => row.join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const anchor = Object.assign(document.createElement("a"), { href: url, download: `DAGOCA_${this.selectedTag}_DEMO.csv` });
+    const anchor = Object.assign(document.createElement("a"), { href: url, download: `DAGOCA_${this.selectedTag}.csv` });
     anchor.click(); URL.revokeObjectURL(url);
   }
 }

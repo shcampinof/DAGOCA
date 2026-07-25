@@ -354,7 +354,47 @@ dialog form { padding: 20px; }
 }
 .process-pipes .cip-pipe { fill: none; stroke: #476e72; stroke-width: 6; stroke-dasharray: 4 3; }
 .process-pipes .cip-pipe.cip-flowing { stroke: #00dbf5; stroke-dasharray: 13 8; animation: classic-flow .55s linear infinite; }
+.process-pipes .route-direction { fill: none; stroke-width: 3; }
+.process-pipes .route-direction.water { stroke: #257b8b; }
+.process-pipes .route-direction.product { stroke: #8b5b22; }
 @keyframes classic-flow { to { stroke-dashoffset: -36; } }
+.plant-zone {
+  position: absolute;
+  z-index: 0;
+  border: 1px solid #8d999f;
+  background: rgb(246 248 249 / 30%);
+}
+.plant-zone > span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 4px 8px;
+  border-right: 1px solid #8d999f;
+  border-bottom: 1px solid #8d999f;
+  background: #f5f7f8;
+  color: #334852;
+  font: 600 8px "IBM Plex Mono", Consolas, monospace;
+  letter-spacing: .06em;
+}
+.zone-utilities { top: 44px; left: 12px; width: 377px; height: 248px; }
+.zone-brewhouse { top: 44px; left: 389px; width: 589px; height: 248px; }
+.zone-cold { top: 44px; right: 12px; width: 210px; height: 248px; }
+.zone-fermentation { top: 302px; left: 12px; width: 581px; height: 249px; }
+.zone-maturation { top: 302px; right: 12px; width: 581px; height: 249px; }
+.zone-packaging { top: 555px; left: 150px; right: 12px; height: 123px; }
+.zone-packaging > span { left: 155px; }
+.route-tag {
+  position: absolute;
+  z-index: 6;
+  top: 278px;
+  padding: 3px 7px;
+  border: 1px solid currentColor;
+  background: #f5f7f8;
+  font: 600 7px "IBM Plex Mono", Consolas, monospace;
+  letter-spacing: .06em;
+}
+.water-route { left: 225px; color: #257b8b; }
+.product-route { left: 570px; color: #8b5b22; }
 .process-label {
   position: absolute;
   z-index: 4;
