@@ -4,6 +4,8 @@ Prototipo académico e interactivo de supervisión para una cervecería artesana
 
 El resumen de planta utiliza un mímico SCADA tradicional: depósitos metálicos, niveles, colectores, tuberías, válvulas, bombas, pilotos, placas de identificación y displays de instrumentación. Todos estos elementos reaccionan al mismo estado de simulación.
 
+La interfaz utiliza IBM Plex Sans e IBM Plex Mono, tipografías abiertas bajo licencia SIL Open Font License. Si no existe conexión para cargarlas desde Google Fonts, se aplican fuentes de sistema compatibles.
+
 > **Importante:** este software no controla equipos reales, no implementa funciones instrumentadas de seguridad y no sustituye protecciones eléctricas, mecánicas o de presión. Todos los valores están marcados y tratados como parámetros DEMO.
 
 ## Ejecución local
