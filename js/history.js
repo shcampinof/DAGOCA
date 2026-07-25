@@ -10,7 +10,12 @@ class TrendManager {
   }
 
   seedHistory() {
+    const saved = PersistentState.read("dagoca-history", null);
+    if (saved) {
+      Object.entries(saved).forEach(([tag, points]) => this.history.set(tag, points));
+    }
     Object.entries(this.config.tags).forEach(([tag, meta]) => {
+      if (this.history.has(tag)) return;
       const now = Date.now();
       const data = [];
       for (let i = 180; i >= 0; i--) {
@@ -83,6 +88,9 @@ class TrendManager {
       source.push({ x: Date.now(), y: +next.toFixed(meta.unit === "SG" ? 3 : 2) });
       if (source.length > 1600) source.shift();
     });
+    const snapshot = {};
+    this.history.forEach((points, tag) => snapshot[tag] = points.slice(-500));
+    PersistentState.write("dagoca-history", snapshot);
   }
 
   readSimulatorValue(tag) {
@@ -92,7 +100,8 @@ class TrendManager {
       "TT-IC1": s.get("IC1")?.temperature, "TT-TF": s.get(this.simulator.activeBatch?.fermenter)?.temperature,
       "PT-TF": s.get(this.simulator.activeBatch?.fermenter)?.pressure, "AIT-SG-TF": s.get(this.simulator.activeBatch?.fermenter)?.density,
       "TT-TM": s.get(this.simulator.activeBatch?.maturation)?.temperature, "PT-TM": s.get(this.simulator.activeBatch?.maturation)?.pressure,
-      "AIT-TU-T7": s.get("T7")?.turbidity
+      "AIT-TU-T7": s.get("T7")?.turbidity, "PDT-T7": s.get("T7")?.differentialPressure,
+      "AIT-TU-TM": s.get(this.simulator.activeBatch?.maturation)?.turbidity
     };
     return Number.isFinite(map[tag]) ? map[tag] : null;
   }
@@ -112,7 +121,15 @@ class TrendManager {
 
   exportCsv(range) {
     const meta = this.config.tags[this.selectedTag];
-    const rows = [["timestamp", "tag", `value_${meta.unit}`], ...this.filtered(this.selectedTag, range).map(point => [new Date(point.x).toISOString(), this.selectedTag, point.y])];
+    const batch = this.simulator.activeBatch;
+    const rows = [
+      ["timestamp", "lote", "receta", "etapa", "tag", "valor", "unidad", "calidad", "modo", "alarma"],
+      ...this.filtered(this.selectedTag, range).map(point => [
+        new Date(point.x).toISOString(), batch?.id || "—", batch?.recipe || "—",
+        batch?.stage || "EN ESPERA", this.selectedTag, point.y, meta.unit,
+        "SIMULATED", this.simulator.mode.toUpperCase(), "NO"
+      ])
+    ];
     const csv = rows.map(row => row.join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const anchor = Object.assign(document.createElement("a"), { href: url, download: `DAGOCA_${this.selectedTag}.csv` });

@@ -1,9 +1,6 @@
 const demoConfig = {
   plant: { fermenters: 5, maturationTanks: 5, annualCapacityHl: 500, batchVolumeL: 481 },
-  recipes: {
-    "Sabor A": { color: "#e5a94a", mashTemp: 66, mashPh: 5.3, boilTemp: 100, coolerMax: 20, fermentationTemp: 19, fermentationPressure: 1.15, finalDensity: 1.012, maturationTemp: 3, maturationPressure: 1.25, turbidityMax: 1.2 },
-    "Sabor B": { color: "#b97947", mashTemp: 68, mashPh: 5.4, boilTemp: 100, coolerMax: 18, fermentationTemp: 17, fermentationPressure: 1.1, finalDensity: 1.009, maturationTemp: 2, maturationPressure: 1.2, turbidityMax: .9 }
-  },
+  recipes: recipeBlueprints,
   simulation: { tickMs: 1000, secondsPerStage: 9, stableWindow: 3 },
   tags: {
     "TT-T3": { label: "Temperatura de maceración", unit: "°C", setpoint: 66, low: 62, high: 72 },
@@ -15,7 +12,9 @@ const demoConfig = {
     "AIT-SG-TF": { label: "Densidad fermentador", unit: "SG", setpoint: 1.012, low: 1.006, high: 1.06 },
     "TT-TM": { label: "Temperatura maduración", unit: "°C", setpoint: 3, low: 0, high: 6 },
     "PT-TM": { label: "Presión maduración", unit: "bar", setpoint: 1.2, low: .7, high: 1.6 },
-    "AIT-TU-T7": { label: "Turbidez filtrado final", unit: "NTU", setpoint: .8, low: 0, high: 1.2 }
+    "AIT-TU-T7": { label: "Turbidez salida T7", unit: "NTU", setpoint: .8, low: 0, high: 1.2 },
+    "PDT-T7": { label: "Presión diferencial T7", unit: "bar", setpoint: .3, low: 0, high: .8 },
+    "AIT-TU-TM": { label: "Turbidez maduración", unit: "NTU", setpoint: 1, low: 0, high: 2 }
   }
 };
 
@@ -26,9 +25,17 @@ class EventBus extends EventTarget {
 
 class Equipment {
   constructor(tag, name, type = "tank", options = {}) {
-    Object.assign(this, { tag, name, type, status: "Disponible", level: 0, temperature: 20, pressure: 0, ph: null, density: null, turbidity: null, clean: true, closed: true, maintenance: false, batchId: null, history: [] }, options);
+    Object.assign(this, {
+      tag, name, type, service: name, status: "Disponible",
+      level: 0, temperature: 20, setpoint: null, pressure: 0, pressureIn: null, pressureOut: null,
+      differentialPressure: null, ph: null, density: null, densitySamples: [], turbidity: null,
+      turbidityIn: null, clean: true, closed: true, maintenance: false, maintenanceStatus: "DISPONIBLE",
+      batchId: null, recipe: null, cipStatus: "LIMPIO", operatingHours: 0, starts: 0,
+      lastMaintenance: "Pendiente", nextMaintenance: "Pendiente", quality: signalQuality.SIMULATED,
+      instruments: [], history: []
+    }, options);
   }
-  get available() { return !this.batchId && this.clean && this.closed && !this.maintenance && !["En limpieza", "Alarma"].includes(this.status); }
+  get available() { return !this.batchId && this.clean && this.closed && !this.maintenance && !["En limpieza", "Alarma", "Fuera de servicio"].includes(this.status); }
 }
 
 class Tank extends Equipment {
@@ -43,9 +50,15 @@ class Pump extends Equipment {
   constructor(tag, options = {}) { super(tag, `Bomba ${tag}`, "pump", { status: "Detenida", ...options }); }
 }
 
+class Sensor {
+  constructor(tag, variable, unit, status = "PENDIENTE DE SELECCIÓN") {
+    Object.assign(this, { tag, variable, unit, status, quality: signalQuality.SIMULATED });
+  }
+}
+
 class Batch {
-  constructor({ id, recipe, volume, fermenter, maturation }) {
-    Object.assign(this, { id, recipe, volume: Number(volume), fermenter, maturation, stage: "Preparado", stageIndex: -1, startedAt: null, elapsed: 0, status: "Preparado" });
+  constructor({ id, recipe, volume, fermenter, maturation, operator = "Operador 01" }) {
+    Object.assign(this, { id, recipe, volume: Number(volume), fermenter, maturation, operator, stage: "Preparado", stageIndex: -1, startedAt: null, elapsed: 0, status: "Programado", createdAt: new Date().toISOString() });
   }
 }
 
@@ -85,16 +98,28 @@ class ScadaSimulator {
   constructor(config = demoConfig) {
     this.config = config;
     this.bus = new EventBus();
-    this.mode = "auto";
+    const savedSettings = storage.read("dagoca-config", {});
+    Object.assign(this.config.plant, {
+      fermenters: Number(savedSettings.fermenters) || this.config.plant.fermenters,
+      maturationTanks: Number(savedSettings.maturationTanks) || this.config.plant.maturationTanks
+    });
+    if (Number(savedSettings.stageSeconds)) this.config.simulation.secondsPerStage = Number(savedSettings.stageSeconds);
+    this.mode = storage.read("dagoca-mode", "auto");
     this.running = false;
     this.emergency = false;
     this.stepMode = false;
     this.stageProgress = 0;
     this.conditions = {};
     this.events = storage.read("dagoca-events", []);
-    this.batches = storage.read("dagoca-batches", []).map(item => Object.assign(new Batch(item), item));
-    this.activeBatch = this.batches.find(batch => batch.status === "En proceso") || null;
+    this.batches = storage.read("dagoca-batches", []).map(item => {
+      const batch = Object.assign(new Batch(item), item);
+      const legacy = { Preparado: "Programado", "En proceso": "EN PREPARACIÓN", Completado: "FINALIZADO", Cancelado: "CANCELADO" };
+      batch.status = legacy[batch.status] || batch.status;
+      return batch;
+    });
+    this.activeBatch = this.batches.find(batch => batch.stageIndex >= 0 && !["FINALIZADO", "Completado", "CANCELADO", "Cancelado"].includes(batch.status)) || null;
     this.equipment = this.createEquipment();
+    this.restoreEquipmentState();
     this.restoreReservations();
     this.steps = stageDefinitions.map(step => new GrafcetStep(step.code, step.name, step.group, step.conditions));
     this.interval = null;
@@ -104,28 +129,36 @@ class ScadaSimulator {
   createEquipment() {
     const items = [
       new Equipment("T1", "Filtro de agua", "filter", { status: "Disponible" }),
-      new Tank("T2", "Agua filtrada", { temperature: 18 }),
-      new Tank("T3", "Macerador", { ph: 5.3 }),
+      new Tank("T2", "Agua filtrada", { temperature: 18, instruments: [new Sensor("LSL-T2", "Nivel bajo", "%"), new Sensor("LSH-T2", "Nivel alto", "%")] }),
+      new Tank("T3", "Macerador", { ph: 5.3, instruments: [new Sensor("TT-T3", "Temperatura", "°C", "PRELIMINAR"), new Sensor("AIT-pH-T3", "pH", "pH", "PRELIMINAR")] }),
       new Equipment("T4", "Filtro primario", "filter"),
       new Tank("T5", "Cocción", { temperature: 20 }),
-      new Equipment("IC1", "Enfriador", "cooler", { temperature: 18 }),
-      new Equipment("T7", "Filtrado final", "filter", { turbidity: .7 }),
+      new Equipment("IC1", "Enfriador", "cooler", { temperature: 18, temperatureIn: 80 }),
+      new Equipment("T7", "Filtrado final", "filter", { turbidity: .7, turbidityIn: 2.4, pressureIn: 1.5, pressureOut: 1.2, differentialPressure: .3 }),
       new Equipment("EMB-01", "Embotellado", "bottling"),
       new Equipment("CIP-01", "Skid CIP", "cip"),
-      new Pump("B1"), new Pump("B2"), new Pump("B3"),
-      new Valve("XV-101"), new Valve("XV-201"), new Valve("XV-301")
+      new Pump("B1"), new Pump("B2"), new Pump("B3"), new Equipment("AG1", "Agitador T3", "agitator", { status: "Detenido" }),
+      new Valve("V2"), new Valve("XV-003"), new Valve("XV-004"), new Valve("XV-006")
     ];
-    for (let i = 1; i <= this.config.plant.fermenters; i++) items.push(new Tank(`TF-${String(i).padStart(2, "0")}`, `Fermentador ${i}`, { density: 1.05, pressure: 0, temperature: 18 }));
+    for (let i = 1; i <= this.config.plant.fermenters; i++) items.push(new Tank(`TF-${String(i).padStart(2, "0")}`, `Fermentador ${i}`, { displayTag: `T6-${String(i).padStart(2, "0")}`, density: 1.05, pressure: 0, temperature: 18 }));
     for (let i = 1; i <= this.config.plant.maturationTanks; i++) items.push(new Tank(`TM-${String(i).padStart(2, "0")}`, `Maduración ${i}`, { turbidity: 2.4, pressure: 0, temperature: 3 }));
     return new Map(items.map(item => [item.tag, item]));
   }
 
   restoreReservations() {
-    this.batches.filter(batch => !["Completado", "Cancelado"].includes(batch.status)).forEach(batch => {
+    this.batches.filter(batch => !["FINALIZADO", "Completado", "CANCELADO", "Cancelado"].includes(batch.status)).forEach(batch => {
       [batch.fermenter, batch.maturation].forEach(tag => {
         const equipment = this.equipment.get(tag);
         if (equipment) { equipment.batchId = batch.id; equipment.status = batch.status === "En proceso" ? "Reservado" : "Asignado"; }
       });
+    });
+  }
+
+  restoreEquipmentState() {
+    const saved = storage.read("dagoca-equipment", {});
+    Object.entries(saved).forEach(([tag, state]) => {
+      const equipment = this.equipment.get(tag);
+      if (equipment) Object.assign(equipment, state);
     });
   }
 
@@ -152,10 +185,11 @@ class ScadaSimulator {
 
   start() {
     if (this.emergency) return this.reject("Resetee la parada de emergencia antes de iniciar.");
+    if (this.mode === "maintenance") return this.reject("Modo mantenimiento activo. La secuencia automática está bloqueada.");
     if (!this.activeBatch) {
-      this.activeBatch = this.batches.find(batch => batch.status === "Preparado");
+      this.activeBatch = this.batches.find(batch => ["Preparado", "Programado"].includes(batch.status));
       if (!this.activeBatch) return this.reject("Cree un lote antes de iniciar la producción.");
-      this.activeBatch.status = "En proceso";
+      this.activeBatch.status = "EN PREPARACIÓN";
       this.activeBatch.startedAt ||= new Date().toISOString();
       this.activeBatch.stageIndex = Math.max(0, this.activeBatch.stageIndex);
     }
@@ -173,7 +207,9 @@ class ScadaSimulator {
   stop() {
     if (!this.running) return this.reject("La secuencia ya está detenida.");
     this.running = false;
-    this.log("Parada controlada solicitada");
+    [...this.equipment.values()].filter(e => e.type === "pump").forEach(p => p.status = "Detenida");
+    [...this.equipment.values()].filter(e => e.type === "valve").forEach(v => { v.position = "Cerrada"; v.status = "Disponible"; });
+    this.log("Parada controlada completada: transferencias inhibidas, bombas detenidas y válvulas cerradas");
     this.emitState();
     return true;
   }
@@ -181,6 +217,9 @@ class ScadaSimulator {
   triggerEmergency() {
     this.emergency = true; this.running = false;
     [...this.equipment.values()].filter(e => e.type === "pump").forEach(p => p.status = "Detenida");
+    [...this.equipment.values()].filter(e => e.type === "valve").forEach(v => { v.position = "Cerrada"; v.status = "Disponible"; });
+    const agitator = this.equipment.get("AG1");
+    if (agitator) agitator.status = "Detenido";
     this.log("PARADA DE EMERGENCIA activada");
     this.bus.emit("emergency", true);
     this.emitState();
@@ -195,9 +234,25 @@ class ScadaSimulator {
     return true;
   }
 
+  resetSequence() {
+    if (!this.activeBatch) return this.reject("No hay una secuencia activa para reiniciar.");
+    this.running = false;
+    this.activeBatch.stageIndex = 0;
+    this.activeBatch.stage = this.steps[0].name;
+    this.stageProgress = 0;
+    this.conditions = {};
+    this.applyStage();
+    this.log(`Secuencia del lote ${this.activeBatch.id} reiniciada`);
+    this.emitState();
+    return true;
+  }
+
   setMode(mode) {
     this.mode = mode;
-    this.log(`Modo de operación: ${mode === "auto" ? "Automático" : "Manual"}`);
+    storage.write("dagoca-mode", mode);
+    const labels = { auto: "Automático", manual: "Manual", maintenance: "Mantenimiento", simulation: "Simulación" };
+    if (mode === "maintenance") this.running = false;
+    this.log(`Modo de operación: ${labels[mode] || mode}`);
     this.emitState();
   }
 
@@ -222,7 +277,7 @@ class ScadaSimulator {
       coolerOk: index !== 5 || ratio >= .62,
       destinationAvailable: Boolean(this.equipment.get(this.activeBatch.fermenter)?.closed),
       pressureOk: ratio >= .5,
-      densityStable: index !== 6 || ratio >= .78,
+      densityStable: index !== 6 || isDensityStable(this.equipment.get(this.activeBatch.fermenter)?.densitySamples || [], .0015, this.config.simulation.stableWindow),
       turbidityOk: ![9, 10].includes(index) || ratio >= .75,
       routeReady: ratio >= .55,
       cleanComplete: ratio >= .76
@@ -303,6 +358,11 @@ class ScadaSimulator {
       equipment.batchId ||= this.activeBatch.id;
     }
     this.activeBatch.stage = this.currentStep()?.name || "Completado";
+    this.activeBatch.status = [
+      "EN PREPARACIÓN", "EN PREPARACIÓN", "EN MACERACIÓN", "EN PREPARACIÓN",
+      "EN COCCIÓN", "EN ENFRIAMIENTO", "EN FERMENTACIÓN", "EN FERMENTACIÓN",
+      "EN FERMENTACIÓN", "EN MADURACIÓN", "EN FILTRADO FINAL", "LISTO PARA EMBOTELLADO"
+    ][this.activeStage] || this.activeBatch.status;
     if (this.activeStage === 6) {
       const tf = this.equipment.get(this.activeBatch.fermenter);
       tf.level = 92; tf.pressure = .8; tf.density = 1.05;
@@ -339,6 +399,8 @@ class ScadaSimulator {
       tf.temperature = +(recipe.fermentationTemp + jitter(.25)).toFixed(1);
       tf.pressure = +(.8 + (recipe.fermentationPressure - .8) * ratio + jitter(.03)).toFixed(2);
       tf.density = +(1.05 - (1.05 - recipe.finalDensity) * ratio + jitter(.0006)).toFixed(3);
+      tf.densitySamples.push(tf.density);
+      tf.densitySamples = tf.densitySamples.slice(-20);
     }
     if (this.activeStage >= 9) {
       tm.temperature = +(recipe.maturationTemp + jitter(.18)).toFixed(1);
@@ -354,7 +416,7 @@ class ScadaSimulator {
 
   completeBatch() {
     const batch = this.activeBatch;
-    batch.status = "Completado"; batch.stage = "Completado";
+    batch.status = "FINALIZADO"; batch.stage = "Finalizado";
     [batch.fermenter, batch.maturation].forEach(tag => {
       const equipment = this.equipment.get(tag);
       equipment.status = "Sucio"; equipment.clean = false; equipment.level = 0; equipment.batchId = null;
@@ -367,7 +429,7 @@ class ScadaSimulator {
   markClean(tags) {
     tags.forEach(tag => {
       const equipment = this.equipment.get(tag);
-      if (equipment) { equipment.clean = true; equipment.status = equipment.batchId ? "Reservado" : "Disponible"; }
+      if (equipment) { equipment.clean = true; equipment.cipStatus = "LIMPIO"; equipment.status = equipment.batchId ? "Reservado" : "Disponible"; }
     });
     this.log(`CIP completado: ${tags.join(", ")}`);
     this.emitState();
@@ -385,7 +447,20 @@ class ScadaSimulator {
     storage.write("dagoca-events", this.events);
     this.bus.emit("event", event);
   }
-  persist() { storage.write("dagoca-batches", this.batches); }
+  persist() {
+    storage.write("dagoca-batches", this.batches);
+    const equipmentState = {};
+    this.equipment.forEach((equipment, tag) => {
+      equipmentState[tag] = {
+        status: equipment.status, level: equipment.level, temperature: equipment.temperature,
+        pressure: equipment.pressure, ph: equipment.ph, density: equipment.density, turbidity: equipment.turbidity,
+        clean: equipment.clean, closed: equipment.closed, maintenance: equipment.maintenance,
+        maintenanceStatus: equipment.maintenanceStatus, batchId: equipment.batchId, cipStatus: equipment.cipStatus,
+        operatingHours: equipment.operatingHours, starts: equipment.starts
+      };
+    });
+    storage.write("dagoca-equipment", equipmentState);
+  }
   emitState() { this.updateStepStatus(); this.persist(); this.bus.emit("state", this.snapshot()); }
   snapshot() { return { running: this.running, emergency: this.emergency, mode: this.mode, activeBatch: this.activeBatch, activeStage: this.activeStage, stageProgress: this.stageProgress, conditions: this.conditions }; }
 }

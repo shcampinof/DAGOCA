@@ -1,102 +1,124 @@
 # DAGOCA · Sistema SCADA
 
-Prototipo académico e interactivo de supervisión para una cervecería artesanal. Simula una producción de dos lotes semanales de aproximadamente 481 L, desde la preparación de agua hasta el embotellado y la limpieza CIP.
+Sistema web académico de supervisión y control para una cervecería artesanal. Representa la preparación de agua, maceración, filtrado primario, cocción, enfriamiento, fermentación, maduración, filtrado final, embotellado y limpieza CIP.
 
-El resumen de planta utiliza un mímico SCADA tradicional: depósitos metálicos, niveles, colectores, tuberías, válvulas, bombas, pilotos, placas de identificación y displays de instrumentación. Todos estos elementos reaccionan al mismo estado de simulación.
+> No controla equipos reales ni sustituye protecciones eléctricas, mecánicas, sanitarias o instrumentadas de seguridad. Todas las señales se identifican como `SIMULATED`.
 
-La interfaz utiliza Arial y Tahoma, tipografías de sistema habituales en estaciones HMI. No requiere descargar fuentes externas.
+## Ejecutar
 
-> **Importante:** este software no controla equipos reales, no implementa funciones instrumentadas de seguridad y no sustituye protecciones eléctricas, mecánicas o de presión. Todos los valores son parámetros de simulación.
-
-## Ejecución local
-
-El proyecto no necesita instalación ni compilación. Puede abrir `index.html` directamente con doble clic; la navegación, los controles y el simulador funcionan bajo el protocolo local `file://`.
-
-Para una ejecución equivalente a GitHub Pages también puede servirlo por HTTP:
+Puede abrir `index.html` directamente o servir el directorio:
 
 ```bash
 python -m http.server 8080
 ```
 
-Abra `http://localhost:8080`. También puede usar cualquier servidor estático, por ejemplo la extensión Live Server de VS Code.
-
-Las tendencias cargan Chart.js desde CDN. Si el navegador bloquea ese recurso al abrir el archivo local, la interfaz muestra un aviso y el resto del SCADA continúa funcionando. La aplicación usa HTML, CSS, JavaScript y SVG propios, sin frameworks.
-
-## Demostración sugerida
-
-1. Abra **Lotes y recetas** y cree un lote. Solo aparecen fermentadores y tanques de maduración limpios, cerrados y disponibles.
-2. Pulse **Iniciar**. En automático, la secuencia avanza cuando se satisfacen sus condiciones simuladas.
-3. Abra **GRAFCET** para observar el paso activo, las transiciones y la causa exacta de cualquier espera.
-4. Active **Modo paso a paso** si desea aprobar cada transición manualmente.
-5. Revise **Tendencias**, cambie el tag y el rango, pause la actualización o exporte el histórico a CSV.
-6. En **Alarmas**, genere eventos, aplique filtros y reconózcalos. Reconocer no normaliza la condición.
-7. Use la parada de emergencia para comprobar el enclavamiento y la baliza crítica; luego pulse **Reset**.
-8. Al terminar un lote, seleccione los equipos sucios en **Limpieza CIP** y ejecute el ciclo.
-
-La secuencia está acelerada para demostración. Fermentación y maduración no avanzan solo por tiempo: también comprueban temperatura, presión, estabilidad de densidad o turbidez, según corresponda.
+Después abra `http://localhost:8080`. Chart.js está almacenado en `vendor/chart.umd.min.js`; las tendencias no dependen de un CDN.
 
 ## Estructura
 
 ```text
 .
-├── .github/workflows/deploy-pages.yml  # Despliegue automático
-├── assets/favicon.svg                   # Identidad SVG propia
-├── index.html                           # Estructura semántica y vistas
-├── styles.css                           # Sistema visual responsive
-├── app.js                               # UI, eventos y persistencia
-├── simulator.js                         # Equipos, lotes y máquina de estados
-├── alarms.js                            # Modelo y gestión de alarmas
-├── charts.js                            # Tendencias y exportación CSV
-└── README.md
+├── index.html
+├── css/
+│   └── styles.css
+├── js/
+│   ├── app.js
+│   ├── state.js
+│   ├── process.js
+│   ├── grafcet.js
+│   ├── alarms.js
+│   ├── history.js
+│   ├── batches.js
+│   ├── recipes.js
+│   ├── cip.js
+│   ├── permissions.js
+│   └── ui.js
+├── vendor/
+│   └── chart.umd.min.js
+├── assets/
+└── .github/workflows/deploy-pages.yml
 ```
 
-## Configuración de la simulación
+## Pantallas
 
-La configuración central está en el objeto `demoConfig` al inicio de `simulator.js`.
+- Vista general con estado de planta, producción semanal, lote, etapa, alarmas, disponibilidad y CIP.
+- Proceso con mímico interactivo, tanques configurables y rutas de agua, producto y limpieza.
+- GRAFCET 0.10, 0.20 y 0.30 con pasos, transiciones, bloqueos y temporizadores.
+- Lotes con asignación exclusiva de fermentador y tanque de maduración.
+- Recetas DAGOCA Clara y DAGOCA Ámbar.
+- Tendencias e históricos con Chart.js local y exportación CSV.
+- Alarmas con reconocimiento, normalización y cierre.
+- CIP con ocho fases y bloqueo de equipos.
+- Mantenimiento, configuración y diagnóstico básico.
 
-Para cambiar la cantidad de tanques:
+## Simulador
 
-```js
-plant: {
-  fermenters: 5,
-  maturationTanks: 5
-}
-```
+La máquina de estados está en `js/process.js`. Los tiempos están comprimidos para presentación. Las transiciones combinan tiempo y condiciones de proceso:
 
-No hay vistas acopladas al valor cinco; los colectores y selectores se generan desde esa configuración.
+- Maceración: nivel, temperatura, pH y conversión confirmada.
+- Enfriamiento: temperatura de salida y fermentador disponible.
+- Fermentación: tiempo, temperatura, presión y estabilidad de densidad.
+- Maduración: tiempo, temperatura y turbidez.
+- Filtrado final: ruta, disponibilidad y turbidez.
 
-Las recetas `Sabor A` y `Sabor B`, los setpoints y los límites de tendencia también están en `demoConfig`. En la interfaz, un usuario con rol **Supervisor** puede modificar la temperatura de maceración. La preferencia se conserva en `localStorage`.
+La estabilidad de densidad se evalúa con `isDensityStable()` sobre una ventana configurable de muestras.
+
+## Roles
+
+| Función | Operador | Supervisor | Ingeniería |
+|---|:---:|:---:|:---:|
+| Ver proceso e históricos | ✓ | ✓ | ✓ |
+| Iniciar lotes y reconocer alarmas | ✓ | ✓ | ✓ |
+| Operación manual bajo interlocks | ✓ | ✓ | ✓ |
+| Editar recetas y parámetros CIP | — | ✓ | ✓ |
+| Autorizar transición y resetear secuencia | — | ✓ | ✓ |
+| Cerrar alarmas normalizadas | — | ✓ | ✓ |
+| Forzar alarmas en simulación | — | — | ✓ |
+| Configurar equipos y cantidades | — | — | ✓ |
+| Restablecer datos locales | — | — | ✓ |
+
+## Interlocks implementados
+
+| Comando o transición | Condición que bloquea |
+|---|---|
+| Arranque B1 | T2 sin nivel de succión |
+| Calentamiento | Tanque por debajo del nivel mínimo |
+| Crear lote | Fermentador o maduración ocupado, sucio, abierto o en mantenimiento |
+| Producción | Equipo seleccionado en CIP |
+| Operación manual | Emergencia activa o modo incompatible |
+| Secuencia automática | Modo mantenimiento |
+| Fermentación a maduración | Densidad inestable, presión/temperatura incorrecta o destino no disponible |
+| Maduración a filtrado | Tiempo, temperatura o turbidez fuera de condición |
+| Reset de emergencia | Requiere rol Supervisor o Ingeniería |
+
+Cuando un comando se rechaza, la interfaz informa motivo, equipo responsable y acción requerida.
 
 ## Persistencia
 
-Se guardan de forma defensiva:
+`localStorage` conserva usuario, rol, modo, configuración, lotes, recetas, alarmas, históricos, equipos, GRAFCET mediante el estado del lote, eventos y estado CIP. El botón **Restablecer simulación**, disponible para Ingeniería, elimina las claves `dagoca-*` después de solicitar confirmación.
 
-- lotes y último lote activo;
-- alarmas y reconocimientos;
-- eventos recientes;
-- tema oscuro/claro;
-- rol y sonido;
-- parámetros de receta editados.
+## Parámetros pendientes
 
-Si `localStorage` contiene datos corruptos o no está disponible, la aplicación usa valores seguros y continúa operando.
+Requieren validación de ingeniería:
 
-## Despliegue en GitHub Pages
+- tiempos, temperaturas y límites definitivos de receta;
+- tolerancia y ventana de estabilidad de densidad;
+- concentración, conductividad y temperatura CIP;
+- límites de presión diferencial y turbidez de T7;
+- selección final de instrumentos y rangos;
+- matriz causa-efecto, rutas de válvulas y análisis de riesgos;
+- estrategia de filtración tangencial/crossflow.
 
-El workflow incluido publica la raíz del repositorio cuando hay un `push` a `main`.
+## Publicar en GitHub Pages
+
+Los cambios en `main` se despliegan automáticamente:
 
 ```bash
-git init
 git add .
-git commit -m "feat: prototipo SCADA DAGOCA"
-git branch -M main
-git remote add origin https://github.com/USUARIO/REPOSITORIO.git
-git push -u origin main
+git commit -m "descripción del cambio"
+git push
 ```
 
-En GitHub, abra **Settings → Pages** y seleccione **GitHub Actions** como fuente. La URL quedará disponible al terminar la acción `Deploy DAGOCA to GitHub Pages`.
+El workflow de `.github/workflows/deploy-pages.yml` publica la raíz del repositorio. La URL de producción es:
 
-## Límites de ingeniería
-
-Son demostrativos: tiempos comprimidos, recetas, temperaturas, presiones, pH, densidad, turbidez, límites de alarma, lógica CIP, disponibilidad del filtro tangencial/crossflow y cualquier interlock representado. Un proyecto real requiere análisis de riesgos, P&ID aprobado, matriz causa-efecto, selección de instrumentación, validación sanitaria, pruebas FAT/SAT y control en PLC/SIS certificado.
-
-El simulador académico sí mantiene coherencia visual y lógica entre el mímico, el GRAFCET, las alarmas, los lotes, el estado de los equipos y las tendencias.
+https://shcampinof.github.io/DAGOCA/
