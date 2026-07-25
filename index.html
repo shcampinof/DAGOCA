@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Prototipo académico SCADA para una cervecería artesanal DAGOCA.">
+  <title>DAGOCA · Sistema SCADA</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Saltar al contenido</a>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Navegación principal">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">D</span>
+        <div><strong>DAGOCA</strong><small>Sistema SCADA</small></div>
+      </div>
+      <nav>
+        <button class="nav-item active" data-view="overview" aria-current="page"><span>⌂</span>Resumen de planta</button>
+        <button class="nav-item" data-view="batches"><span>◫</span>Lotes y recetas</button>
+        <button class="nav-item" data-view="grafcet"><span>⌘</span>GRAFCET</button>
+        <button class="nav-item" data-view="trends"><span>⌁</span>Tendencias</button>
+        <button class="nav-item" data-view="alarms"><span>△</span>Alarmas <b id="alarm-count">0</b></button>
+        <button class="nav-item" data-view="cip"><span>↻</span>Limpieza CIP</button>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="connection"><i></i><span>SIM-PLC conectado</span></div>
+        <small>Prototipo académico · DEMO</small>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <button class="icon-button menu-toggle" id="menu-toggle" aria-label="Abrir menú">☰</button>
+        <div>
+          <p class="eyebrow">DAGOCA / PLANTA 01</p>
+          <h1 id="view-title">Resumen de planta</h1>
+        </div>
+        <div class="topbar-actions">
+          <div class="mode-switch" aria-label="Modo de operación">
+            <button data-mode="manual">Manual</button>
+            <button data-mode="auto" class="active">Automático</button>
+          </div>
+          <label class="select-label"><span>Rol</span>
+            <select id="role-select"><option>Operador</option><option>Supervisor</option></select>
+          </label>
+          <button class="icon-button" id="sound-toggle" aria-label="Silenciar alarmas" title="Sonido de alarma">🔊</button>
+          <button class="icon-button" id="theme-toggle" aria-label="Cambiar tema" title="Cambiar tema">☼</button>
+          <time id="clock" aria-label="Hora del sistema">--:--:--</time>
+        </div>
+      </header>
+
+      <div class="safety-strip">
+        <span><i class="status-dot running"></i><b id="system-status">Sistema preparado</b></span>
+        <span>Modo <b id="mode-label">AUTOMÁTICO</b></span>
+        <span>Etapa <b id="stage-label">EN ESPERA</b></span>
+        <span>Lote <b id="active-batch-label">—</b></span>
+        <div class="process-controls">
+          <button class="btn success" id="start-btn">▶ Iniciar</button>
+          <button class="btn" id="stop-btn">■ Parada controlada</button>
+          <button class="btn" id="reset-btn">↺ Reset</button>
+          <button class="emergency" id="emergency-btn" aria-label="Parada de emergencia">PARADA<br>EMERGENCIA</button>
+        </div>
+      </div>
+
+      <main id="main-content" tabindex="-1">
+        <section class="view active" id="view-overview" data-title="Resumen de planta">
+          <div class="metrics" id="overview-metrics"></div>
+          <div class="panel plant-panel">
+            <div class="panel-heading">
+              <div><p class="eyebrow">SINÓPTICO DE PROCESO</p><h2>Línea de elaboración</h2></div>
+              <div class="legend" aria-label="Leyenda de estados">
+                <span><i class="status-dot running"></i>Operando</span>
+                <span><i class="status-dot ready"></i>Disponible</span>
+                <span><i class="status-dot warning"></i>Advertencia</span>
+                <span><i class="status-dot alarm"></i>Alarma</span>
+              </div>
+            </div>
+            <div class="plant-mimic" id="plant-mimic" aria-label="Diagrama simplificado del proceso">
+              <div class="process-row primary-row" id="primary-line"></div>
+              <div class="manifold product-manifold"><span>COLECTOR DE FERMENTACIÓN</span></div>
+              <div class="tank-grid" id="fermenter-grid"></div>
+              <div class="manifold maturation-manifold"><span>COLECTOR DE MADURACIÓN</span></div>
+              <div class="tank-grid" id="maturation-grid"></div>
+              <div class="process-row final-row" id="final-line"></div>
+              <div class="cip-route"><span class="cip-icon">CIP</span><span class="flow-line cyan"></span><small>Circuito de limpieza independiente</small></div>
+            </div>
+          </div>
+          <div class="dashboard-grid">
+            <article class="panel">
+              <div class="panel-heading"><div><p class="eyebrow">SECUENCIA</p><h2>GRAFCET activo</h2></div><button class="text-button" data-go="grafcet">Ver detalle →</button></div>
+              <div id="mini-grafcet"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-heading"><div><p class="eyebrow">EVENTOS</p><h2>Actividad reciente</h2></div></div>
+              <ol class="event-list" id="event-list"></ol>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" id="view-batches" data-title="Lotes y recetas">
+          <div class="section-grid batches-layout">
+            <article class="panel">
+              <div class="panel-heading"><div><p class="eyebrow">PRODUCCIÓN</p><h2>Lotes simulados</h2></div><button class="btn primary" id="new-batch-btn">＋ Crear lote</button></div>
+              <div class="table-wrap"><table>
+                <thead><tr><th>Lote</th><th>Receta</th><th>Volumen</th><th>Inicio</th><th>Etapa</th><th>Transcurrido</th><th>Destino</th></tr></thead>
+                <tbody id="batch-table"></tbody>
+              </table></div>
+            </article>
+            <aside class="panel recipe-panel">
+              <div class="panel-heading"><div><p class="eyebrow">DEMO EDITABLE</p><h2>Parámetros de simulación</h2></div></div>
+              <div id="recipe-cards"></div>
+              <p class="engineering-note">⚠ Valores únicamente demostrativos. Requieren validación de ingeniería antes de cualquier uso real.</p>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="view-grafcet" data-title="GRAFCET">
+          <div class="panel">
+            <div class="panel-heading">
+              <div><p class="eyebrow">CONTROL SECUENCIAL</p><h2>Subprocesos coordinados</h2></div>
+              <div class="step-controls"><label><input type="checkbox" id="step-mode"> Modo paso a paso</label><button class="btn primary" id="advance-btn">Avanzar paso</button></div>
+            </div>
+            <p class="info-banner">La secuencia combina condiciones de proceso y tiempo mínimo. Ninguna transición de fermentación o maduración depende únicamente de un temporizador.</p>
+            <div class="grafcet-board" id="grafcet-board"></div>
+          </div>
+        </section>
+
+        <section class="view" id="view-trends" data-title="Tendencias e históricos">
+          <div class="panel trend-panel">
+            <div class="panel-heading"><div><p class="eyebrow">HISTÓRICOS</p><h2>Variables de proceso <span class="demo-badge">DEMO</span></h2></div><div class="trend-actions"><button class="btn" id="pause-chart">Ⅱ Pausar</button><button class="btn" id="export-csv">⇩ Exportar CSV</button></div></div>
+            <div class="chart-toolbar">
+              <label>Tag<select id="tag-select"></select></label>
+              <label>Rango<select id="range-select"><option value="15">15 min</option><option value="60">1 h</option><option value="480">8 h</option><option value="1440">24 h</option><option value="batch">Lote completo</option></select></label>
+              <div id="trend-summary"></div>
+            </div>
+            <div class="chart-container"><canvas id="trend-chart" aria-label="Gráfico de tendencia"></canvas></div>
+            <div class="chart-fallback" id="chart-fallback" hidden>Chart.js no está disponible. Verifique la conexión o abra el proyecto con acceso al CDN.</div>
+          </div>
+        </section>
+
+        <section class="view" id="view-alarms" data-title="Alarmas">
+          <div class="alarm-cards" id="alarm-summary"></div>
+          <div class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">GESTIÓN DE EVENTOS</p><h2>Alarmas activas e históricas</h2></div><button class="btn" id="demo-alarm-btn">＋ Generar alarma demo</button></div>
+            <div class="filters">
+              <label>Prioridad<select id="alarm-priority"><option value="">Todas</option><option>Crítica</option><option>Alta</option><option>Media</option><option>Informativa</option></select></label>
+              <label>Equipo<select id="alarm-equipment"><option value="">Todos</option></select></label>
+              <label>Estado<select id="alarm-state"><option value="">Todos</option><option>Activa</option><option>Reconocida</option><option>Normalizada</option></select></label>
+              <label class="search-label">Buscar<input id="alarm-search" type="search" placeholder="Tag, descripción o lote…"></label>
+            </div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Fecha y hora</th><th>Prioridad</th><th>Tag</th><th>Descripción</th><th>Equipo</th><th>Lote</th><th>Estado</th><th>Acción</th></tr></thead>
+              <tbody id="alarm-table"></tbody>
+            </table></div>
+          </div>
+        </section>
+
+        <section class="view" id="view-cip" data-title="Limpieza CIP">
+          <div class="cip-layout">
+            <article class="panel">
+              <div class="panel-heading"><div><p class="eyebrow">SECUENCIA CIP</p><h2>Ruta de limpieza</h2></div><button class="btn primary" id="start-cip-btn">↻ Iniciar ciclo</button></div>
+              <div class="cip-visual">
+                <div class="cip-station"><span>SKID</span><strong>CIP-01</strong><small id="cip-status">Preparado</small></div>
+                <div class="flow-line cyan" id="cip-flow"></div>
+                <div class="cip-targets" id="cip-targets"></div>
+              </div>
+              <div class="cip-progress"><div id="cip-progress-bar"></div></div>
+              <div class="cip-steps" id="cip-steps"></div>
+            </article>
+            <aside class="panel">
+              <div class="panel-heading"><div><p class="eyebrow">INGENIERÍA</p><h2>Parámetros configurables</h2></div></div>
+              <form id="cip-config" class="form-stack">
+                <label>Duración por fase (s)<input type="number" name="duration" min="2" max="60" value="8"></label>
+                <label>Concentración objetivo (%) <input type="number" name="concentration" step=".1" placeholder="Por definir"></label>
+                <label>Conductividad objetivo (mS/cm) <input type="number" name="conductivity" step=".1" placeholder="Por definir"></label>
+                <label>Temperatura objetivo (°C) <input type="number" name="temperature" step=".1" placeholder="Por definir"></label>
+              </form>
+              <p class="engineering-note">Los campos pendientes no representan consignas reales. Deben definirse mediante estudio de ingeniería y validación sanitaria.</p>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <aside class="drawer" id="equipment-drawer" aria-hidden="true" aria-labelledby="drawer-title">
+    <div class="drawer-head"><div><p class="eyebrow">DETALLE DE EQUIPO</p><h2 id="drawer-title">Equipo</h2></div><button class="icon-button" id="close-drawer" aria-label="Cerrar panel">×</button></div>
+    <div id="drawer-content"></div>
+  </aside>
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+
+  <dialog id="batch-dialog">
+    <form method="dialog" id="batch-form">
+      <div class="dialog-head"><div><p class="eyebrow">NUEVA ORDEN</p><h2>Crear lote simulado</h2></div><button value="cancel" class="icon-button" aria-label="Cerrar">×</button></div>
+      <div class="form-grid">
+        <label>ID del lote<input name="id" required></label>
+        <label>Receta<select name="recipe" id="batch-recipe"></select></label>
+        <label>Volumen objetivo (L)<input name="volume" type="number" min="50" max="600" value="481" required></label>
+        <label>Fermentador<select name="fermenter" id="batch-fermenter"></select></label>
+        <label>Tanque de maduración<select name="maturation" id="batch-maturation"></select></label>
+      </div>
+      <p class="validation-message" id="batch-validation"></p>
+      <div class="dialog-actions"><button value="cancel" class="btn">Cancelar</button><button type="submit" value="default" class="btn primary">Crear lote</button></div>
+    </form>
+  </dialog>
+
+  <div class="toast-region" id="toast-region" aria-live="polite"></div>
+  <div class="beacon" id="alarm-beacon" aria-label="Baliza de alarma crítica" hidden><span></span>ALARMA CRÍTICA</div>
+</body>
+</html>
