@@ -1,4 +1,4 @@
-export class Alarm {
+class Alarm {
   constructor({ id = crypto.randomUUID(), priority, tag, description, equipment, batch = "—", state = "Activa", timestamp = new Date().toISOString(), source = "demo" }) {
     Object.assign(this, { id, priority, tag, description, equipment, batch, state, timestamp, source });
   }
@@ -27,7 +27,7 @@ const safeRead = () => {
   catch { return []; }
 };
 
-export class AlarmManager {
+class AlarmManager {
   constructor(bus) {
     this.bus = bus;
     this.alarms = safeRead().map(item => new Alarm(item));

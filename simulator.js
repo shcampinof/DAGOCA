@@ -1,4 +1,4 @@
-export const demoConfig = {
+const demoConfig = {
   plant: { fermenters: 5, maturationTanks: 5, annualCapacityHl: 500, batchVolumeL: 481 },
   recipes: {
     "Sabor A": { color: "#e5a94a", mashTemp: 66, mashPh: 5.3, boilTemp: 100, coolerMax: 20, fermentationTemp: 19, fermentationPressure: 1.15, finalDensity: 1.012, maturationTemp: 3, maturationPressure: 1.25, turbidityMax: 1.2 },
@@ -19,37 +19,37 @@ export const demoConfig = {
   }
 };
 
-export class EventBus extends EventTarget {
+class EventBus extends EventTarget {
   emit(name, detail) { this.dispatchEvent(new CustomEvent(name, { detail })); }
   on(name, handler) { this.addEventListener(name, event => handler(event.detail)); }
 }
 
-export class Equipment {
+class Equipment {
   constructor(tag, name, type = "tank", options = {}) {
     Object.assign(this, { tag, name, type, status: "Disponible", level: 0, temperature: 20, pressure: 0, ph: null, density: null, turbidity: null, clean: true, closed: true, maintenance: false, batchId: null, history: [] }, options);
   }
   get available() { return !this.batchId && this.clean && this.closed && !this.maintenance && !["En limpieza", "Alarma"].includes(this.status); }
 }
 
-export class Tank extends Equipment {
+class Tank extends Equipment {
   constructor(tag, name, options = {}) { super(tag, name, "tank", options); }
 }
 
-export class Valve extends Equipment {
+class Valve extends Equipment {
   constructor(tag, options = {}) { super(tag, `Válvula ${tag}`, "valve", { position: "Cerrada", ...options }); }
 }
 
-export class Pump extends Equipment {
+class Pump extends Equipment {
   constructor(tag, options = {}) { super(tag, `Bomba ${tag}`, "pump", { status: "Detenida", ...options }); }
 }
 
-export class Batch {
+class Batch {
   constructor({ id, recipe, volume, fermenter, maturation }) {
     Object.assign(this, { id, recipe, volume: Number(volume), fermenter, maturation, stage: "Preparado", stageIndex: -1, startedAt: null, elapsed: 0, status: "Preparado" });
   }
 }
 
-export class GrafcetStep {
+class GrafcetStep {
   constructor(code, name, group, conditions = []) {
     Object.assign(this, { code, name, group, conditions, status: "pending" });
   }
@@ -81,7 +81,7 @@ const storage = {
   }
 };
 
-export class ScadaSimulator {
+class ScadaSimulator {
   constructor(config = demoConfig) {
     this.config = config;
     this.bus = new EventBus();

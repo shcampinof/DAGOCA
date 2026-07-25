@@ -21,14 +21,21 @@
 }
 
 [data-theme="light"] {
-  --bg: #eef4f1;
+  --bg: #e9eef2;
   --surface: #ffffff;
-  --surface-2: #f5f9f7;
-  --surface-3: #e7f0ec;
-  --line: #ccdbd5;
-  --text: #10231e;
-  --muted: #5c746c;
-  --shadow: 0 12px 34px rgb(20 55 44 / 12%);
+  --surface-2: #f3f6f8;
+  --surface-3: #e3e9ed;
+  --line: #c8d2d9;
+  --text: #182630;
+  --muted: #61727e;
+  --green: #18795c;
+  --blue: #2e6f9e;
+  --yellow: #b8860b;
+  --red: #c23b45;
+  --cyan: #257b8b;
+  --amber: #b6782e;
+  --gray: #788791;
+  --shadow: 0 5px 18px rgb(31 49 60 / 8%);
   color-scheme: light;
 }
 
@@ -42,7 +49,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focu
 .skip-link:focus { top: 10px; }
 .app-shell { min-height: 100vh; }
 .sidebar { position: fixed; inset: 0 auto 0 0; width: var(--sidebar); padding: 24px 16px; display: flex; flex-direction: column; background: #091512; border-right: 1px solid var(--line); z-index: 40; }
-[data-theme="light"] .sidebar { background: #163b32; color: #edf7f3; --muted: #b7cec7; --line: #31564d; }
+[data-theme="light"] .sidebar { background: #263b49; color: #f3f6f8; --muted: #bcc9d0; --line: #415563; }
 .brand { display: flex; align-items: center; gap: 12px; padding: 0 10px 28px; letter-spacing: .04em; }
 .brand-mark { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 9px; background: var(--green); color: #07110f; font-size: 24px; font-weight: 800; }
 .brand strong, .brand small { display: block; }
@@ -600,6 +607,60 @@ dialog form { padding: 20px; }
 .classic-disclaimer { position: absolute; z-index: 6; right: 8px; bottom: 4px; color: #5d2222; font-size: 7px; font-weight: 700; letter-spacing: .07em; }
 
 [data-theme="light"] .classic-board { border-color: #999; }
+[data-theme="light"] body { background: #e9eef2; }
+[data-theme="light"] .brand-mark { background: #d8e4e8; color: #203743; }
+[data-theme="light"] .nav-item:hover,
+[data-theme="light"] .nav-item.active { background: #385260; color: #ffffff; box-shadow: inset 3px 0 #7fb8ad; }
+[data-theme="light"] .topbar {
+  background: rgb(255 255 255 / 96%);
+  border-bottom-color: #c5d0d7;
+  box-shadow: 0 2px 8px rgb(31 49 60 / 7%);
+}
+[data-theme="light"] .safety-strip { background: #f7f9fa; }
+[data-theme="light"] .panel { border-radius: 7px; }
+[data-theme="light"] .btn { background: #ffffff; }
+[data-theme="light"] .btn.primary,
+[data-theme="light"] .btn.success { background: #1d755d; border-color: #1d755d; color: white; }
+[data-theme="light"] .mode-switch button.active { background: #2b6571; color: white; }
+[data-theme="light"] .eyebrow { color: #2a6c77; }
+[data-theme="light"] .metric { box-shadow: 0 2px 7px rgb(31 49 60 / 5%); }
+[data-theme="light"] .classic-board {
+  border: 1px solid #87949b;
+  background:
+    linear-gradient(rgb(79 96 105 / 7%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(79 96 105 / 7%) 1px, transparent 1px),
+    #d9dde0;
+  background-size: 24px 24px;
+  box-shadow: inset 0 0 18px rgb(34 46 52 / 10%);
+}
+[data-theme="light"] .classic-board-head {
+  border-bottom: 1px solid #77868e;
+  background: #344b58;
+  color: white;
+  text-shadow: none;
+}
+[data-theme="light"] .process-label {
+  border: 0;
+  border-left: 4px solid #4a8178;
+  background: #f5f7f8;
+  color: #293b45;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 14%);
+}
+[data-theme="light"] .bank-header {
+  border: 1px solid #849198;
+  background: #e9edef;
+  color: #263a45;
+}
+[data-theme="light"] .classic-tank-row { background: rgb(250 251 252 / 48%); border-color: #929da3; }
+[data-theme="light"] .unit-readings { background: #24342f; color: #a5dfbc; border-color: #d7ddda; }
+[data-theme="light"] .unit-readings small { color: #e0ebe5; }
+[data-theme="light"] .classic-status { background: #edf1f2; }
+[data-theme="light"] .classic-status.run i { background: #2fa765; box-shadow: 0 0 4px rgb(47 167 101 / 60%); }
+[data-theme="light"] .classic-status.ready i { background: #3b78a2; }
+[data-theme="light"] .pilot-bank i.green.on { background: #38a76a; box-shadow: 0 0 5px rgb(56 167 106 / 65%), inset 0 0 3px white; }
+[data-theme="light"] .pilot-bank i.red.on { background: #c7444c; box-shadow: 0 0 5px rgb(199 68 76 / 65%), inset 0 0 3px white; }
+[data-theme="light"] .pilot-bank i.amber.on { background: #c99a31; box-shadow: 0 0 5px rgb(201 154 49 / 65%), inset 0 0 3px white; }
+[data-theme="light"] .bottling-machine { background: linear-gradient(#f1f3f4, #aeb8bd); }
 @media (max-width: 760px) {
   .plant-mimic { min-width: 1180px; }
   .classic-board { height: 720px; }

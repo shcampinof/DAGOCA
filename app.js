@@ -1,7 +1,3 @@
-import { ScadaSimulator, demoConfig } from "./simulator.js";
-import { AlarmManager } from "./alarms.js";
-import { TrendManager } from "./charts.js";
-
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const simulator = new ScadaSimulator(demoConfig);
@@ -314,15 +310,41 @@ function openEquipment(tag) {
   </div>
   <h3>Alarmas relacionadas</h3><div>${related.length ? related.map(a => `<p class="engineering-note">${a.tag} · ${a.description}</p>`).join("") : '<p style="color:var(--muted);font-size:10px">Sin alarmas relacionadas.</p>'}</div>
   <h3>Actuadores asociados</h3><p style="color:var(--muted);font-size:10px">Válvulas: XV-101 cerrada · XV-201 cerrada<br>Bombas: B1 detenida · B2 detenida</p>
-  <h3>Comandos manuales</h3><div class="drawer-actions"><button class="btn" ${simulator.mode !== "manual" || simulator.emergency ? "disabled" : ""}>Abrir válvula</button><button class="btn" ${simulator.mode !== "manual" || simulator.emergency || !equipment.clean ? "disabled" : ""}>Arrancar bomba</button></div>
+  <h3>Comandos manuales</h3><div class="drawer-actions">
+    <button class="btn" data-manual-command="valve" data-target="${equipment.tag}" ${simulator.mode !== "manual" || simulator.emergency ? "disabled" : ""}>Conmutar válvula</button>
+    <button class="btn" data-manual-command="pump" data-target="${equipment.tag}" ${simulator.mode !== "manual" || simulator.emergency || !equipment.clean ? "disabled" : ""}>Conmutar bomba</button>
+  </div>
   <p class="engineering-note" style="margin-top:12px">La HMI demo no sustituye protecciones mecánicas de presión ni circuitos instrumentados de seguridad.</p>`;
   $("#equipment-drawer").classList.add("open");
   $("#equipment-drawer").setAttribute("aria-hidden", "false");
+  $$("[data-manual-command]").forEach(button => button.addEventListener("click", () => manualCommand(button.dataset.manualCommand, button.dataset.target)));
   $("#close-drawer").focus();
 }
 
 function detailValue(label, value) { return `<div class="detail-value"><span>${label}</span><strong>${value}</strong></div>`; }
 function closeDrawer() { $("#equipment-drawer").classList.remove("open"); $("#equipment-drawer").setAttribute("aria-hidden", "true"); }
+
+function manualCommand(command, sourceTag) {
+  if (simulator.mode !== "manual") return toast("Seleccione modo Manual para operar actuadores.", "error");
+  if (simulator.emergency) return toast("Comando rechazado: parada de emergencia activa.", "error");
+  const source = simulator.equipment.get(sourceTag);
+  if (!source) return toast("Equipo no disponible.", "error");
+  if (!source.clean || source.status === "En limpieza") return toast(`Interlock: ${source.tag} está sucio o en limpieza.`, "error");
+  if (command === "valve") {
+    const valve = [...simulator.equipment.values()].find(item => item.type === "valve");
+    valve.position = valve.position === "Abierta" ? "Cerrada" : "Abierta";
+    valve.status = valve.position === "Abierta" ? "Operando" : "Disponible";
+    simulator.log(`${valve.tag} ${valve.position.toLowerCase()} por comando manual desde ${source.tag}`);
+    toast(`${valve.tag}: ${valve.position}.`);
+  } else {
+    const pump = [...simulator.equipment.values()].find(item => item.type === "pump");
+    pump.status = pump.status === "Operando" ? "Detenida" : "Operando";
+    simulator.log(`${pump.tag} ${pump.status.toLowerCase()} por comando manual desde ${source.tag}`);
+    toast(`${pump.tag}: ${pump.status}.`);
+  }
+  simulator.emitState();
+  openEquipment(sourceTag);
+}
 
 function populateBatchForm() {
   $("#batch-form [name=id]").value = `DG-${new Date().toISOString().slice(2, 10).replaceAll("-", "")}-${String(simulator.batches.length + 1).padStart(2, "0")}`;
@@ -364,7 +386,8 @@ function renderAll() {
   renderAlarmSummary(); updateAlarmEquipmentFilter(); renderAlarmTable(); renderCipTargets(); updateStatus();
 }
 
-function switchView(view) {
+function switchView(view, updateHash = true) {
+  if (!$(`#view-${view}`)) view = "overview";
   $$(".view").forEach(section => section.classList.toggle("active", section.id === `view-${view}`));
   $$(".nav-item").forEach(button => {
     const active = button.dataset.view === view;
@@ -374,12 +397,15 @@ function switchView(view) {
   $("#view-title").textContent = $(`#view-${view}`).dataset.title;
   $("#sidebar").classList.remove("open");
   if (view === "trends" && trends.chart) { trends.chart.resize(); trends.select($("#tag-select").value, $("#range-select").value); }
+  if (updateHash && location.hash !== `#${view}`) history.replaceState(null, "", `#${view}`);
 }
 
 function initNavigation() {
   $$(".nav-item").forEach(button => button.addEventListener("click", () => switchView(button.dataset.view)));
   $$("[data-go]").forEach(button => button.addEventListener("click", () => switchView(button.dataset.go)));
   $("#menu-toggle").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
+  window.addEventListener("hashchange", () => switchView(location.hash.slice(1) || "overview", false));
+  switchView(location.hash.slice(1) || "overview", false);
 }
 
 function initControls() {
@@ -399,7 +425,7 @@ function initControls() {
   $("#role-select").addEventListener("change", event => { role = event.target.value; safeStore("dagoca-role", role); renderRecipes(); toast(`Rol demo cambiado a ${role}.`); });
   $("#theme-toggle").addEventListener("click", () => {
     const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-    document.documentElement.dataset.theme = theme; safeStore("dagoca-theme", theme);
+    document.documentElement.dataset.theme = theme; safeStore("dagoca-theme-v2", theme);
   });
   $("#sound-toggle").addEventListener("click", event => {
     soundEnabled = !soundEnabled; event.currentTarget.textContent = soundEnabled ? "🔊" : "🔇";
@@ -451,7 +477,7 @@ function beep() {
 function init() {
   const savedRecipes = (() => { try { return JSON.parse(localStorage.getItem("dagoca-recipes")); } catch { return null; } })();
   if (savedRecipes) Object.assign(demoConfig.recipes, savedRecipes);
-  document.documentElement.dataset.theme = localStorage.getItem("dagoca-theme") || "dark";
+  document.documentElement.dataset.theme = localStorage.getItem("dagoca-theme-v2") || "light";
   initNavigation(); initControls(); initTrends(); initBus(); renderCipSteps(); renderAll();
   $("#clock").textContent = new Date().toLocaleTimeString("es-CO");
   setInterval(() => $("#clock").textContent = new Date().toLocaleTimeString("es-CO"), 1000);

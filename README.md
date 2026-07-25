@@ -8,15 +8,17 @@ El resumen de planta utiliza un mímico SCADA tradicional: depósitos metálicos
 
 ## Ejecución local
 
-El proyecto no necesita instalación ni compilación. Como utiliza módulos ES, debe servirse por HTTP:
+El proyecto no necesita instalación ni compilación. Puede abrir `index.html` directamente con doble clic; la navegación, los controles y el simulador funcionan bajo el protocolo local `file://`.
+
+Para una ejecución equivalente a GitHub Pages también puede servirlo por HTTP:
 
 ```bash
 python -m http.server 8080
 ```
 
-Abra `http://localhost:8080`. También puede usar cualquier servidor estático, por ejemplo la extensión Live Server de VS Code. El archivo de entrada es `index.html`.
+Abra `http://localhost:8080`. También puede usar cualquier servidor estático, por ejemplo la extensión Live Server de VS Code.
 
-Las tendencias cargan Chart.js desde CDN. El resto de la aplicación funciona con HTML, CSS, JavaScript y SVG propios, sin frameworks.
+Las tendencias cargan Chart.js desde CDN. Si el navegador bloquea ese recurso al abrir el archivo local, la interfaz muestra un aviso y el resto del SCADA continúa funcionando. La aplicación usa HTML, CSS, JavaScript y SVG propios, sin frameworks.
 
 ## Demostración sugerida
 

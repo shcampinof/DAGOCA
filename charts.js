@@ -1,4 +1,4 @@
-export class TrendManager {
+class TrendManager {
   constructor(config, simulator) {
     this.config = config;
     this.simulator = simulator;
