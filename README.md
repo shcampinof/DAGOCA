@@ -20,15 +20,16 @@ Después abra `http://localhost:8000`.
 
 | Pantalla | Contenido principal |
 |---|---|
-| Vista general | Estado de planta, lote, etapa, alarmas y ruta completa por ocho etapas |
+| Vista general | Estado de planta, lote, etapa, alarmas y ruta completa de agua a embotellado |
 | Agua | TK-001, TK-002, LV-100, P-001 y control de nivel |
 | Maceración | TK-003, AG1, vapor, TC-105, tiempos y confirmación de malta |
 | Filtrado I | TK-004, niveles, LC-106, PI-106 y P-002 |
 | Cocción | TK-005, vapor, TC-107, tiempos, lúpulo y P-003 |
 | Enfriamiento | E-001, TC-109, TV-109, PI-109 y permiso a fermentación |
-| Fermentación | TK-006A/B, temperatura, presión, densidad y disponibilidad |
-| Filtrado II | TK-007, niveles e instrumentación simulada pendiente |
-| Maduración | TK-008A/B/C/D y lazos individuales de agua helada |
+| Fermentación | TK-006A/B/C/D/E, temperatura, presión, densidad, enfriamiento y disponibilidad |
+| Maduración | TK-008A hasta TK-008J y lazos individuales de enfriamiento |
+| Filtrado final | TK-007, niveles e instrumentación simulada pendiente |
+| Embotellado | Transferencia final desde TK-007 a EMB-01 |
 | CIP y limpieza | P-000, rutas, fases, retorno, drenaje y bloqueos |
 | Lotes | Creación, asignación y trazabilidad |
 | Históricos | Tendencias locales PV/SP y exportación CSV |
@@ -49,9 +50,9 @@ Después abra `http://localhost:8000`.
 | TK-005 | Cocción |
 | P-003 | Transferencia por enfriamiento |
 | E-001 | Intercambiador de calor |
-| TK-006A / TK-006B | Fermentación |
-| TK-007 | Filtrado II |
-| TK-008A / B / C / D | Maduración |
+| TK-006A / B / C / D / E | Fermentación |
+| TK-008A hasta TK-008J | Maduración |
+| TK-007 | Tanque de filtrado final |
 | P-000 | Bomba del circuito CIP |
 
 ## Interlocks implementados
@@ -65,12 +66,20 @@ Después abra `http://localhost:8000`.
 | Habilitar vapor | TK-003 o TK-005 sin nivel mínimo |
 | Transferir a fermentación | TT-109 igual o superior a 35 °C |
 | Reservar destino | Tanque ocupado, sucio, abierto o en mantenimiento |
+| Transferir a maduración | Madurador asignado no disponible |
+| Transferir a filtrado final | TK-007 sucio, ocupado, abierto o en mantenimiento |
 | Iniciar CIP | Equipo con lote o ruta de producción activa |
 | Reiniciar | Requiere rol y liberación de emergencia |
 
 ## Arquitectura
 
 La aplicación utiliza HTML, CSS y JavaScript sin framework, Chart.js local, rutas relativas y `localStorage`.
+
+El flujo funcional vigente es:
+
+`Agua → Maceración → Filtrado I → Cocción → E-001 → Fermentación → Maduración → TK-007 Filtrado final → Embotellado`.
+
+E-001 es un intercambiador de paso, no un tanque. E-001, fermentadores y maduradores muestran suministro frío y retorno al chiller; fermentación y maduración no utilizan calentamiento. Las chaquetas de vapor de maceración y cocción descargan condensado al sistema de recuperación, separado del desagüe CIP.
 
 - `js/sequence.js`: lógica secuencial interna y traducción a mensajes operativos. No existe una pantalla GRAFCET.
 - `js/data-provider.js`: contrato de datos y `SimulationDataProvider`. Incluye clases de extensión para OPC UA, WebSocket y gateway EtherNet/IP.
@@ -79,6 +88,8 @@ La aplicación utiliza HTML, CSS y JavaScript sin framework, Chart.js local, rut
 - `js/history.js`: históricos, PV/SP y CSV.
 - `js/cip.js`: fases y rutas CIP.
 - `PENDIENTES_PROCESO.md`: conflictos documentales y datos no confirmados.
+
+La persistencia usa el esquema `dagoca-storage-schema = 2`. Al abrir una instalación anterior, los lotes activos que estaban en los índices antiguos de filtrado secundario o maduración se reubican en Maduración para impedir que omitan la etapa en el flujo corregido. Para esos lotes se normalizan únicamente los estados transitorios de transferencia: el fermentador queda sucio y vacío, el madurador reservado con producto y TK-007 vacío, conservando su condición de limpieza o mantenimiento. Se conservan usuarios, recetas, alarmas, históricos, eventos, estados de mantenimiento y lotes finalizados.
 
 PLC previsto: Allen-Bradley CompactLogix 5380 5069-L320ER con Studio 5000. El navegador no debe conectarse directamente al PLC; la conexión futura requiere gateway y backend.
 

@@ -95,6 +95,14 @@ class TrendManager {
 
   readSimulatorValue(tag) {
     const s = this.simulator.equipment;
+    const newTank = Object.entries(newTankInstrumentProfiles).find(([, profile]) =>
+      tag === `TT-${profile.temperature}` || tag === `PI-${profile.temperature}`
+    );
+    if (newTank) {
+      const [equipmentTag, profile] = newTank;
+      const equipment = s.get(equipmentTag);
+      return tag === `TT-${profile.temperature}` ? equipment?.temperature : equipment?.pressure;
+    }
     const map = {
       "TT-105": s.get("TK-003")?.temperature,
       "AIT-105": s.get("TK-003")?.ph,

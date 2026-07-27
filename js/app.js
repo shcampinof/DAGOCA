@@ -10,7 +10,7 @@ let cipTimer = null;
 let cipRunning = false;
 let selectedCip = new Set();
 
-const stageEquipmentTags = ["CIP-01", "TK-001", "TK-003", "TK-004", "TK-005", "E-001", "FERMENTER", "TK-007", "MATURATION", "EMB-01"];
+const stageEquipmentTags = ["CIP-01", "TK-001", "TK-003", "TK-004", "TK-005", "E-001", "FERMENTER", "MATURATION", "TK-007", "EMB-01"];
 const dataProvider = new SimulationDataProvider(simulator);
 
 function safeStore(key, value) {
@@ -64,7 +64,7 @@ function classicUnit(equipment, options = {}) {
       <span class="vessel-top"></span>
       <span class="vessel-body">
         <i class="liquid ${process.toLowerCase()}" style="height:${equipment.level}%"></i>
-        ${shape === "tank" ? '<i class="agitator">↻</i>' : ""}
+        ${equipment.tag === "TK-003" ? '<i class="agitator">↻</i>' : ""}
         ${shape === "filter" ? '<i class="filter-plates"></i>' : ""}
         ${shape === "cooler" ? '<i class="cooler-coil">〰</i>' : ""}
       </span>
@@ -98,19 +98,23 @@ function renderMimic() {
       <div class="plant-zone zone-fermentation"><span>ÁREA 04 · BODEGA DE FERMENTACIÓN</span></div>
       <div class="plant-zone zone-maturation"><span>ÁREA 05 · MADURACIÓN</span></div>
       <div class="plant-zone zone-packaging"><span>ÁREA 06 · FILTRADO Y EMPAQUE</span></div>
-      <svg class="process-pipes" viewBox="0 0 1200 720" preserveAspectRatio="none" aria-hidden="true">
+      <svg class="process-pipes" viewBox="0 0 1200 900" preserveAspectRatio="none" aria-hidden="true">
         <defs>
           <linearGradient id="pipeMetal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fafafa"/><stop offset=".45" stop-color="#777"/><stop offset=".7" stop-color="#f5f5f5"/><stop offset="1" stop-color="#555"/></linearGradient>
           <marker id="productArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#8b5b22"/></marker>
           <marker id="waterArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#257b8b"/></marker>
+          <marker id="coldArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#00a9c2"/></marker>
+          <marker id="returnArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#445fb5"/></marker>
         </defs>
         <path class="pipe" d="M28 184H108 M214 184H264 M382 184H432 M550 184H600 M718 184H770 M886 184H926"/>
         <path class="pipe" d="M1040 184H1110V328H300"/>
-        <path class="pipe ${active >= 5 && active <= 7 ? "product-flow" : ""}" d="M300 328V350 M405 328V350 M510 328V350 M615 328V350 M720 328V350"/>
-        <path class="pipe" d="M300 523V548H900V328H1015"/>
-        <path class="pipe ${active >= 7 && active <= 10 ? "product-flow" : ""}" d="M790 548V568 M895 548V568 M1000 548V568 M1105 548V568"/>
-        <path class="pipe" d="M1015 328H1145V610H970"/>
-        <path class="cip-pipe ${cipRunning ? "cip-flowing" : ""}" d="M46 682H1130V635 M190 682V610 M585 682V525 M900 682V610"/>
+        <path class="pipe ${active >= 5 && active <= 6 ? "product-flow" : ""}" d="M300 328V350 M405 328V350 M510 328V350 M615 328V350 M720 328V350"/>
+        <path class="pipe ${active === 7 ? "product-flow" : ""}" d="M300 523V548H760"/>
+        <path class="pipe ${active === 8 ? "product-flow" : ""}" d="M760 690V790H330"/>
+        <path class="pipe ${active === 9 ? "product-flow" : ""}" d="M410 790H1035"/>
+        <path class="cold-supply" d="M1160 82H980V260H720 M980 260V525H760 M980 260V525H300" marker-end="url(#coldArrow)"/>
+        <path class="cold-return" d="M720 278H1000V105H1160 M300 540H1015V125H1160 M760 540H1030V145H1160" marker-end="url(#returnArrow)"/>
+        <path class="cip-pipe ${cipRunning ? "cip-flowing" : ""}" d="M46 875H1130V835 M190 875V810 M585 875V700 M900 875V700"/>
         <path class="route-direction water" d="M214 184H255" marker-end="url(#waterArrow)"/>
         <path class="route-direction product" d="M382 184H423 M550 184H591 M718 184H761 M886 184H917" marker-end="url(#productArrow)"/>
         <path class="route-direction product" d="M1090 250V312H910" marker-end="url(#productArrow)"/>
@@ -118,6 +122,8 @@ function renderMimic() {
       </svg>
       <div class="route-tag water-route">AGUA DE PROCESO →</div>
       <div class="route-tag product-route">MOSTO / PRODUCTO →</div>
+      <div class="route-tag cold-supply-label">CHILLER · SUMINISTRO FRÍO →</div>
+      <div class="route-tag cold-return-label">← RETORNO AL CHILLER</div>
       <div class="primary-equipment">
         ${classicUnit(get("TK-001"), { shape: "filter", process: "agua" })}
         ${classicUnit(get("TK-002"), { process: "agua" })}
@@ -135,19 +141,19 @@ function renderMimic() {
         <div class="bank-header"><b>COLECTOR TK-006</b><span>Selección automática de fermentador</span></div>
         <div class="classic-tank-row">${fermenters.map(e => classicUnit(e, { compact: true, process: "cerveza", showGauge: false })).join("")}</div>
       </div>
-      <div class="filter2-bank">
-        <div class="bank-header"><b>FILTRADO II</b></div>
-        ${classicUnit(get("TK-007"), { compact: true, shape: "filter", process: "cerveza", showGauge: false })}
-      </div>
       <div class="bank maturation-bank">
         <div class="bank-header"><b>COLECTOR TK-008</b><span>Selección de maduración</span></div>
         <div class="classic-tank-row">${maturation.map(e => classicUnit(e, { compact: true, process: "cerveza", showGauge: false })).join("")}</div>
+      </div>
+      <div class="filter2-bank">
+        <div class="bank-header"><b>TK-007 · FILTRADO FINAL</b></div>
+        ${classicUnit(get("TK-007"), { compact: true, shape: "filter", process: "cerveza", showGauge: false })}
       </div>
       <div class="final-skid">
         <div class="pump-set">
           ${["P-001", "P-002", "P-003"].map((tag, index) => `<button class="pump-symbol ${simulator.running && active >= index * 2 ? "run" : ""}" data-equipment="${tag}"><i>▶</i><b>${tag}</b><small>${get(tag).status}</small></button>`).join("")}
         </div>
-        <button class="bottling-machine ${active === 11 ? "active" : ""}" data-equipment="EMB-01"><i>▥ ▥ ▥</i><b>EMBOTELLADO</b><small>EMB-01 · ${get("EMB-01").status}</small></button>
+        <button class="bottling-machine ${active === 9 ? "active" : ""}" data-equipment="EMB-01"><i>▥ ▥ ▥</i><b>EMBOTELLADO</b><small>EMB-01 · ${get("EMB-01").status}</small></button>
       </div>
       <div class="cip-classic"><b>CIP-01</b><span class="cip-reservoir">CIP</span><span>RETORNO DE LIMPIEZA</span></div>
     </div>`;
@@ -194,7 +200,7 @@ const stageScreens = Object.freeze({
     tags: ["TK-003"], actuators: ["P-001", "AG1", "TV-105", "LV-104"],
     instruments: ["LSL-104", "LSH-104", "TE-105", "TT-105", "TC-105"],
     origin: "TK-002 + malta manual", destination: "TK-004", loop: "TC-105", pv: "Temperatura TK-003", sp: "66,0 °C · valor de simulación",
-    note: "Chaqueta de vapor, agitador AG1, CIP y desagüe."
+    note: "Vapor hacia la chaqueta; condensado separado del desagüe CIP."
   },
   filter1: {
     index: 3, title: "Filtrado I", short: "Filtrado I", media: "wort",
@@ -208,37 +214,48 @@ const stageScreens = Object.freeze({
     tags: ["TK-005"], actuators: ["P-002", "TV-107", "LV-108", "P-003"],
     instruments: ["LSL-108", "LC-108", "TE-107", "TT-107", "TC-107"],
     origin: "TK-004 + lúpulo manual", destination: "E-001", loop: "TC-107", pv: "Temperatura TK-005", sp: "100,0 °C · valor de simulación",
-    note: "Calentamiento por vapor; tiempo de cocción y reposo configurables."
+    note: "Vapor hacia la chaqueta y condensado al sistema de recuperación."
   },
   cooling: {
     index: 5, title: "Enfriamiento", short: "Enfriamiento", media: "glycol",
     tags: ["E-001"], actuators: ["P-003", "TV-109"],
     instruments: ["TT-109", "TC-109", "TV-109", "PI-109"],
-    origin: "TK-005", destination: "TK-006A / TK-006B", loop: "TC-109", pv: "Temperatura de salida", sp: "18,0 °C · valor de simulación",
-    note: "E-001 es un intercambiador. Transferencia bloqueada con TT-109 ≥ 35 °C."
+    origin: "TK-005", destination: "TK-006A / B / C / D / E", loop: "TC-109", pv: "Temperatura de salida", sp: "18,0 °C · valor de simulación",
+    note: "E-001 es de paso: producto separado del suministro y retorno al chiller."
   },
   fermentation: {
     index: 6, title: "Fermentación", short: "Fermentación", media: "beer",
-    tags: ["TK-006A", "TK-006B"], actuators: ["LV-111"],
-    instruments: ["LSH-111", "LSL-112", "TT-111", "TC-111", "PT-111", "AIT-111"],
-    origin: "E-001 + levadura manual", destination: "TK-007", loop: "TC-111", pv: "Temperatura del tanque asignado", sp: "Pendiente de validación",
-    note: "Dos fermentadores seleccionables con entrada y salida independientes."
-  },
-  filter2: {
-    index: 7, title: "Filtrado II", short: "Filtrado II", media: "beer",
-    tags: ["TK-007"], actuators: ["LV-125"],
-    instruments: ["LSH-125", "LSL-125", "LC-125", "LY-125", "AIT-125", "PDT-125"],
-    origin: "TK-006A / TK-006B", destination: "TK-008A / B / C / D", loop: "LC-125", pv: "Nivel TK-007", sp: "Pendiente de validación",
-    note: "Instrumentación de presión diferencial y turbidez: valor simulado; tipo de filtro pendiente."
+    tags: [...fermenterTags], actuators: [...new Set(fermenterTags.map(tankControlValve).filter(Boolean))],
+    instruments: ["LSH-111", "LSL-112", "TT-111", "TC-111", "PT-111", "AIT-111", ...fermenterTags.flatMap(tankInstrumentTags)],
+    origin: "E-001 + levadura manual", destination: () => simulator.activeBatch?.maturation || "Madurador seleccionado", loop: "Control de enfriamiento por tanque", pv: "Temperatura del tanque asignado", sp: "Pendiente de validación",
+    note: "Cinco fermentadores; solo enfriamiento con suministro y retorno al chiller."
   },
   maturation: {
-    index: 8, title: "Maduración", short: "Maduración", media: "beer",
-    tags: ["TK-008A", "TK-008B", "TK-008C", "TK-008D"], actuators: ["TV-113", "TV-116", "TV-119", "TV-122"],
-    instruments: ["TT-113", "TC-113", "TT-116", "TC-116", "TT-119", "TC-119", "TT-122", "TC-122"],
-    origin: "TK-007", destination: "Embotellado", loop: "TC-113 / 116 / 119 / 122", pv: "Temperatura por tanque", sp: "1–4 °C recomendado; validar receta",
-    note: "Cuatro tanques conectados a una línea común de agua helada."
+    index: 7, title: "Maduración", short: "Maduración", media: "beer",
+    tags: [...maturationTags], actuators: maturationTags.map(tankControlValve).filter(Boolean),
+    instruments: ["TT-113", "TC-113", "TT-116", "TC-116", "TT-119", "TC-119", "TT-122", "TC-122", ...maturationTags.flatMap(tankInstrumentTags)],
+    origin: () => simulator.activeBatch?.fermenter || "Fermentador seleccionado", destination: "TK-007", loop: "Control de enfriamiento por tanque", pv: "Temperatura por tanque", sp: "1–4 °C recomendado; validar receta",
+    note: "Diez maduradores; solo enfriamiento con suministro y retorno al chiller."
+  },
+  filter2: {
+    index: 8, title: "TK-007 – Tanque de filtrado final", short: "Filtrado final", media: "beer",
+    tags: ["TK-007"], actuators: ["LV-125"],
+    instruments: ["LSH-125", "LSL-125", "LC-125", "LY-125", "AIT-125", "PDT-125"],
+    origin: () => simulator.activeBatch?.maturation || "Madurador seleccionado", destination: "Embotellado", loop: "LC-125", pv: "Nivel TK-007", sp: "Pendiente de validación",
+    note: "ΔP, turbidez y tecnología específica del filtro continúan pendientes."
+  },
+  packaging: {
+    index: 9, title: "Embotellado", short: "Embotellado", media: "beer",
+    tags: ["EMB-01"], actuators: ["LV-125"],
+    instruments: [],
+    origin: "TK-007", destination: "Línea de embotellado", loop: "Transferencia de producto", pv: "Estado de línea", sp: "Transferencia completa",
+    note: "Etapa final posterior al filtrado final en TK-007."
   }
 });
+
+function stageText(value) {
+  return typeof value === "function" ? value() : value;
+}
 
 function getStageAlarmCount(spec) {
   return alarms.alarms.filter(alarm => alarm.state.startsWith("ACTIVA") && [...spec.tags, ...spec.actuators].some(tag => alarm.equipment === tag || alarm.tag.includes(tag.replace("TK-", "")))).length;
@@ -258,7 +275,7 @@ function renderStageOverview() {
           <strong>${spec.tags.join(" · ")}</strong>
           <dl><dt>Estado</dt><dd>${active ? getOperatorSequenceState(simulator).status : equipment?.status || "Disponible"}</dd><dt>Variable</dt><dd>${equipment?.temperature?.toFixed?.(1) ?? "—"} °C</dd><dt>Lote</dt><dd>${equipment?.batchId || "—"}</dd><dt>Alarmas</dt><dd>${alarmCount}</dd></dl>
           <button class="btn" data-go="${key}">Ver detalle</button>
-        </article>${position < 7 ? '<span class="overview-connector" aria-hidden="true">→</span>' : ""}`;
+        </article>${position < Object.keys(stageScreens).length - 1 ? '<span class="overview-connector" aria-hidden="true">→</span>' : ""}`;
       }).join("")}
     </div>`;
   $("#stage-overview").querySelectorAll("[data-go]").forEach(button => button.addEventListener("click", () => switchView(button.dataset.go)));
@@ -286,7 +303,7 @@ function stageStateMarkup(spec) {
       <dt>Tiempo</dt><dd>${isActive ? `${formatTime(simulator.stageProgress)} / ${formatTime(demoConfig.simulation.secondsPerStage)}` : "—"}</dd>
       <dt>Condición para continuar</dt><dd>${pendingText}</dd>
       <dt>Interlock activo</dt><dd>${simulator.emergency ? "Parada de emergencia" : isActive && !simulator.canAdvance() ? pendingText : "Ninguno"}</dd>
-      <dt>Próximo destino</dt><dd>${spec.destination}</dd>
+      <dt>Próximo destino</dt><dd>${stageText(spec.destination)}</dd>
     </dl>
     <div class="stage-progress"><i style="width:${isActive ? progress : simulator.activeStage > spec.index ? 100 : 0}%"></i></div>`;
 }
@@ -298,28 +315,30 @@ function renderStageScreen(key, spec) {
   const equipment = spec.tags.map(tag => simulator.equipment.get(tag)).filter(Boolean);
   const alarmCount = getStageAlarmCount(spec);
   const pvIsLevel = ["water", "filter1", "filter2"].includes(key);
-  const pvValue = pvIsLevel ? equipment[0]?.level : equipment[0]?.temperature?.toFixed?.(1);
+  const pvIsStatus = key === "packaging";
+  const pvValue = pvIsLevel ? equipment[0]?.level : pvIsStatus ? equipment[0]?.status : equipment[0]?.temperature?.toFixed?.(1);
+  const pvUnit = pvIsLevel ? "%" : pvIsStatus ? "" : "°C";
   target.innerHTML = `
     <div class="stage-screen-head">
-      <div><p class="eyebrow">ÁREA DE PROCESO · P&ID</p><h2>${spec.title}</h2><p>${spec.origin} → ${spec.destination}</p></div>
+      <div><p class="eyebrow">ÁREA DE PROCESO · P&ID</p><h2>${spec.title}</h2><p>${stageText(spec.origin)} → ${stageText(spec.destination)}</p></div>
       <div class="stage-head-status"><span><i class="status-dot ${alarmCount ? "alarm" : stageActive ? "running" : "ready"}"></i>${alarmCount ? `${alarmCount} alarma(s)` : stageActive ? "Etapa en operación" : "Sin alarmas activas"}</span><button class="btn" data-go="home">Vista general</button></div>
     </div>
     <div class="stage-workspace">
       <article class="stage-mimic panel">
         <div class="mimic-title"><b>RUTA DE PROCESO</b><span>${spec.note}</span></div>
-        <div class="stage-route route-${spec.media} ${stageActive ? "active" : ""}">
-          <span class="route-terminal">${spec.origin}</span>
+        <div class="stage-route route-${spec.media} ${equipment.length > 5 ? "many" : ""} ${stageActive ? "active" : ""}">
+          <span class="route-terminal">${stageText(spec.origin)}</span>
           <i class="route-line"></i>
           ${equipment.map((item, index) => `${classicUnit(item, { compact: equipment.length > 2, shape: item.type === "filter" ? "filter" : item.type === "cooler" ? "cooler" : "tank", process: spec.media, showGauge: equipment.length <= 2 })}${index < equipment.length - 1 ? '<i class="route-line"></i>' : ""}`).join("")}
           <i class="route-line"></i>
-          <span class="route-terminal">${spec.destination}</span>
+          <span class="route-terminal">${stageText(spec.destination)}</span>
         </div>
         <div class="stage-actuators">${spec.actuators.map(tag => actuatorMarkup(tag, stageActive)).join("")}</div>
         <div class="utility-lines">
           <span class="utility cip">CIP · línea discontinua</span>
-          ${["mashing", "boiling"].includes(key) ? '<span class="utility steam">Vapor · línea tramada</span>' : ""}
-          ${["cooling", "fermentation", "maturation"].includes(key) ? '<span class="utility glycol">Agua fría / helada · línea cian</span>' : ""}
-          <span class="utility drain">Desagüe · línea gris</span>
+          <span class="utility drain">Desagüe CIP · línea gris</span>
+          ${["mashing", "boiling"].includes(key) ? '<span class="utility steam">Vapor hacia chaqueta</span><span class="utility condensate">Condensado a sistema de recuperación</span>' : ""}
+          ${["cooling", "fermentation", "maturation"].includes(key) ? '<span class="utility glycol">Suministro frío desde chiller</span><span class="utility cold-return">Retorno al chiller</span>' : ""}
         </div>
       </article>
       <aside class="panel stage-state-panel">${stageStateMarkup(spec)}</aside>
@@ -328,10 +347,10 @@ function renderStageScreen(key, spec) {
       <article class="panel loop-panel">
         <div class="panel-heading"><div><p class="eyebrow">LAZO DE CONTROL</p><h2>${spec.loop}</h2></div><span class="badge">AUTO</span></div>
         <div class="loop-values">
-          <span>PV<strong>${pvValue ?? "—"} ${pvIsLevel ? "%" : "°C"}</strong></span>
+          <span>PV<strong>${pvValue ?? "—"} ${pvUnit}</strong></span>
           <span>SP<strong>${spec.sp}</strong></span>
           <span>Salida<strong>${stageActive ? Math.min(100, 18 + simulator.stageProgress * 7) : 0} %</strong></span>
-          <span>Error<strong>${equipment[0]?.setpoint != null ? (equipment[0].setpoint - equipment[0].temperature).toFixed(1) : "—"}</strong></span>
+          <span>Error<strong>${!pvIsStatus && equipment[0]?.setpoint != null ? (equipment[0].setpoint - equipment[0].temperature).toFixed(1) : "—"}</strong></span>
         </div>
         <div class="mini-trend" aria-label="Minigráfica PV y SP"><i></i><b></b></div>
       </article>
@@ -341,7 +360,7 @@ function renderStageScreen(key, spec) {
       </article>
       <article class="panel">
         <div class="panel-heading"><div><p class="eyebrow">LOTE E INTERLOCKS</p><h2>Condiciones operativas</h2></div></div>
-        <dl class="stage-state-values"><dt>Lote</dt><dd>${simulator.activeBatch?.id || "—"}</dd><dt>Receta</dt><dd>${simulator.activeBatch?.recipe || "—"}</dd><dt>Origen</dt><dd>${spec.origin}</dd><dt>Destino</dt><dd>${spec.destination}</dd><dt>CIP</dt><dd>${equipment.some(item => item.cipStatus !== "LIMPIO") ? "ACTIVO / PENDIENTE" : "Disponible"}</dd></dl>
+        <dl class="stage-state-values"><dt>Lote</dt><dd>${simulator.activeBatch?.id || "—"}</dd><dt>Receta</dt><dd>${simulator.activeBatch?.recipe || "—"}</dd><dt>Origen</dt><dd>${stageText(spec.origin)}</dd><dt>Destino</dt><dd>${stageText(spec.destination)}</dd><dt>CIP</dt><dd>${equipment.some(item => item.cipStatus !== "LIMPIO") ? "ACTIVO / PENDIENTE" : "Disponible"}</dd></dl>
       </article>
     </div>
     ${key === "filter2" ? '<p class="engineering-note"><strong>INSTRUMENTACIÓN PENDIENTE DE SELECCIÓN.</strong> El tipo definitivo de filtro, ΔP y turbidez no están confirmados por el P&ID.</p>' : ""}`;
@@ -542,14 +561,16 @@ function openEquipment(tag) {
     ["Presión", equipment.pressure, "bar"], ["pH", equipment.ph, "pH"], ["Densidad", equipment.density, "SG"],
     ["Turbidez", equipment.turbidity, "NTU"], ["ΔP filtro", equipment.differentialPressure, "bar"]
   ].filter(([, value]) => value != null);
+  const cellarDetails = cellarOperationalDetails(equipment);
   $("#drawer-content").innerHTML = `<div class="detail-hero">
     <div class="tank-large"><i class="level" style="height:${equipment.level}%"></i></div>
     <div><p class="detail-status">● ${equipment.status}</p><p style="margin-top:8px;color:var(--muted);font-size:10px">Servicio: ${equipmentServices[equipment.tag] || equipment.service}<br>Lote: ${equipment.batchId || "Sin asignar"} · Receta: ${activeBatch?.recipe || "—"}<br>CIP: ${equipment.cipStatus} · Modo: ${simulator.mode.toUpperCase()}</p>${qualityLabel(equipment.quality)}</div>
   </div>
   <div class="detail-grid">${variables.map(([label, value, unit]) => detailValue(label, `${value} ${unit}`)).join("")}${activeBatch ? detailValue("Tiempo en etapa", formatTime(simulator.stageProgress)) : ""}${detailValue("Último mantenimiento", equipment.lastMaintenance)}</div>
+  ${cellarDetails}
   <h3>Instrumentación asociada</h3><div class="instrument-list">${equipment.instruments.length ? equipment.instruments.map(sensor => `<p><code>${sensor.tag}</code><span>${sensor.variable} · ${sensor.status}</span>${qualityLabel(sensor.quality)}</p>`).join("") : `<p><span>INSTRUMENTO PENDIENTE DE SELECCIÓN</span>${qualityLabel()}</p>`}</div>
   <h3>Alarmas relacionadas</h3><div>${related.length ? related.map(a => `<p class="engineering-note">${a.tag} · ${a.description}</p>`).join("") : '<p style="color:var(--muted);font-size:10px">Sin alarmas relacionadas.</p>'}</div>
-  <h3>Actuadores asociados</h3><p style="color:var(--muted);font-size:10px">Válvulas: LV-100 · LV-104 · TV-105 · TV-107 · TV-109 · LV-108<br>Bombas: P-001 · P-002 · P-003 · Agitador: AG1</p>
+  <h3>Actuadores asociados</h3><p style="color:var(--muted);font-size:10px">${associatedActuatorText(equipment.tag)}</p>
   <h3>Comandos manuales</h3><div class="drawer-actions">
     <button class="btn" data-manual-command="valve" data-target="${equipment.tag}" ${!["manual", "simulation"].includes(simulator.mode) || simulator.emergency ? "disabled" : ""}>Conmutar válvula</button>
     <button class="btn" data-manual-command="pump" data-target="${equipment.tag}" ${!["manual", "simulation"].includes(simulator.mode) || simulator.emergency || !equipment.clean ? "disabled" : ""}>Conmutar bomba</button>
@@ -562,6 +583,26 @@ function openEquipment(tag) {
 }
 
 function detailValue(label, value) { return `<div class="detail-value"><span>${label}</span><strong>${value}</strong></div>`; }
+function cellarOperationalDetails(equipment) {
+  if (!equipment.tag.startsWith("TK-006") && !equipment.tag.startsWith("TK-008")) return "";
+  const association = manualAssociations[equipment.tag];
+  const valve = simulator.equipment.get(association?.valve);
+  const batch = simulator.batches.find(item => item.id === equipment.batchId);
+  const selected = batch && [batch.fermenter, batch.maturation].includes(equipment.tag);
+  const remaining = selected && simulator.activeBatch?.id === batch.id
+    ? Math.max(0, demoConfig.simulation.secondsPerStage - simulator.stageProgress)
+    : null;
+  return `<h3>Permisos, interlocks y control térmico</h3>
+    <dl class="stage-state-values">
+      <dt>Selección</dt><dd>${selected ? `Asignado a ${batch.id}` : "No seleccionado"}</dd>
+      <dt>Permiso de llenado</dt><dd>${equipment.clean && equipment.closed && !equipment.maintenance ? "HABILITADO" : "BLOQUEADO"}</dd>
+      <dt>Permiso de descarga</dt><dd>${equipment.level > 5 && equipment.closed && !equipment.maintenance ? "HABILITADO" : "BLOQUEADO"}</dd>
+      <dt>Nivel alto / bajo</dt><dd>${equipment.level >= 90 ? "LSH ACTIVO" : "LSH normal"} · ${equipment.level <= 5 ? "LSL ACTIVO" : "LSL normal"}</dd>
+      <dt>Válvula de enfriamiento</dt><dd>${association?.valve || "—"} · orden ${valve?.position || "—"} · realimentación ${valve?.status || "—"}</dd>
+      <dt>Tiempo restante</dt><dd>${remaining == null ? "—" : formatTime(remaining)}</dd>
+      <dt>Interlock</dt><dd>${equipment.maintenance ? "Mantenimiento / fuera de servicio" : equipment.cipStatus !== "LIMPIO" ? "CIP pendiente" : "Sin bloqueo propio"}</dd>
+    </dl>`;
+}
 function closeDrawer() { $("#equipment-drawer").classList.remove("open"); $("#equipment-drawer").setAttribute("aria-hidden", "true"); }
 
 function interlockReject(reason, equipment, action) {
@@ -576,12 +617,19 @@ const manualAssociations = Object.freeze({
   "TK-004": { pump: "P-002", valve: "LV-104" },
   "TK-005": { pump: "P-003", valve: "TV-107" },
   "E-001": { pump: "P-003", valve: "TV-109" },
-  "TK-006A": { valve: "LV-111" },
-  "TK-006B": { valve: "LV-111" },
+  ...Object.fromEntries(fermenterTags.map(tag => [tag, { valve: tankControlValve(tag) }])),
   "TK-007": { valve: "LV-125" },
-  "TK-008A": { valve: "TV-113" }, "TK-008B": { valve: "TV-116" },
-  "TK-008C": { valve: "TV-119" }, "TK-008D": { valve: "TV-122" }
+  ...Object.fromEntries(maturationTags.map(tag => [tag, { valve: tankControlValve(tag) }]))
 });
+
+function associatedActuatorText(tag) {
+  const association = manualAssociations[tag];
+  const parts = [];
+  if (association?.valve) parts.push(`Válvula: ${association.valve}`);
+  if (association?.pump) parts.push(`Bomba: ${association.pump}`);
+  if (tag === "TK-003") parts.push("Agitador: AG1");
+  return parts.join(" · ") || "Sin actuadores manuales asociados.";
+}
 
 function manualCommand(command, sourceTag) {
   if (!["manual", "simulation"].includes(simulator.mode)) return toast("Seleccione modo Manual o Simulación para operar actuadores.", "error");
@@ -721,8 +769,8 @@ function initControls() {
     username = data.username?.trim() || "Operador 01";
     safeStore("dagoca-user", username);
     if (hasPermission(role, "configureEquipment")) {
-      PersistentState.write("dagoca-config", { fermenters: Number(data.fermenters), maturationTanks: Number(data.maturationTanks), stageSeconds: Number(data.stageSeconds) });
-      toast("Configuración guardada. Recargue para aplicar cantidades de tanques.");
+      PersistentState.write("dagoca-config", { fermenters: 5, maturationTanks: 10, stageSeconds: Number(data.stageSeconds) });
+      toast("Configuración guardada. La capacidad permanece fijada en 5 fermentadores y 10 maduradores.");
     } else toast("Usuario actualizado. El resto requiere rol Ingeniería.", "error");
     updateStatus();
   });
@@ -788,8 +836,8 @@ function init() {
     });
   }
   $("#settings-form [name=username]").value = username;
-  $("#settings-form [name=fermenters]").value = settings.fermenters || demoConfig.plant.fermenters;
-  $("#settings-form [name=maturationTanks]").value = settings.maturationTanks || demoConfig.plant.maturationTanks;
+  $("#settings-form [name=fermenters]").value = demoConfig.plant.fermenters;
+  $("#settings-form [name=maturationTanks]").value = demoConfig.plant.maturationTanks;
   $("#settings-form [name=stageSeconds]").value = settings.stageSeconds || demoConfig.simulation.secondsPerStage;
   $$(".mode-switch button").forEach(button => button.classList.toggle("active", button.dataset.mode === simulator.mode));
   dataProvider.connect().catch(() => toast("No fue posible iniciar el proveedor de simulación.", "error"));

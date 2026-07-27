@@ -1,41 +1,35 @@
 # Pendientes de proceso e ingeniería
 
-Este registro evita presentar como definitivos datos que no están confirmados de forma coherente por el documento del proyecto, los P&ID y los GRAFCET suministrados.
+Este registro mantiene únicamente los datos que siguen sin definición aprobada. Mientras se armonizan los PFD, P&ID, GRAFCET e informe, prevalece `AJUSTE_CONTEXTO_PROYECTO_CERVECERIA.md`.
 
 ## Criterio aplicado en el SCADA
 
-- Los P&ID001, P&ID002 y P&ID003 son la referencia visual y de tags.
-- El documento del proyecto define el orden funcional de las ocho etapas.
-- Los GRAFCET I y II se usan únicamente como referencia de la secuencia interna.
-- Los valores no confirmados se identifican como `PENDIENTE DE VALIDACIÓN`, `VALOR DE SIMULACIÓN` o `INSTRUMENTO PENDIENTE DE SELECCIÓN`.
+- El flujo vigente es `Agua → Maceración → Filtrado I → Cocción → E-001 → Fermentación → Maduración → TK-007 Filtrado final → Embotellado`.
+- La capacidad vigente es de cinco fermentadores (`TK-006A` a `TK-006E`) y diez maduradores (`TK-008A` a `TK-008J`).
+- `E-001` es un intercambiador de paso; no existe un tanque de enfriamiento.
+- Fermentación y maduración usan únicamente enfriamiento y control de temperatura.
+- Los tags existentes se conservan. Los tags propuestos desde 128 amplían las series sin renumerar instrumentos actuales.
+- Condensado de chaquetas de vapor y desagüe CIP se representan como redes distintas.
 
-## Inconsistencias detectadas
-
-| Tema | Evidencia | Tratamiento |
-|---|---|---|
-| Cantidad de fermentadores | P&ID002 muestra TK-006A y TK-006B; los GRAFCET contienen ramas para cinco tanques. | El SCADA representa dos fermentadores, conforme al P&ID vigente. |
-| Orden de Filtrado II y Maduración | El documento del proyecto ordena Fermentación → Filtrado II → Maduración; textos del GRAFCET presentan ramas y nombres contradictorios. | Se implementa el orden del documento y la conexión se representa según P&ID003. Requiere validación de narrativa de control. |
-| Nombres de operaciones en GRAFCET | Aparecen textos repetidos como “Maceración” en ramas posteriores y referencias a un tanque de enfriamiento. | No se muestran al operador. Se traducen a lenguaje operacional y se registra esta discrepancia. |
-| Equipo de enfriamiento | El documento inicial usa IC1; P&ID002 usa E-001. | Se usa E-001, intercambiador de calor. No se representa un tanque de enfriamiento. |
-| Identificación histórica de bombas | El documento académico usa B1/B2/B3; los P&ID usan P-001/P-002/P-003. | Se usan los tags P-001, P-002 y P-003. |
-| Señales de fermentación | P&ID002 contiene numeraciones diferentes entre TK-006A y TK-006B y el texto extraído no permite confirmar todos los rangos. | Se muestran tags confirmados y valores simulados; rangos definitivos quedan pendientes. |
+La cantidad de tanques y el orden entre fermentación, maduración y filtrado final ya no son pendientes.
 
 ## Datos pendientes de validación
 
-- Setpoints y tolerancias de todas las recetas.
+- Fluido definitivo de refrigeración: agua fría, agua helada o mezcla con glicol.
+- Validación en el proyecto completo de AutoCAD Plant 3D de los tags propuestos desde 128 y de `YV-002A` a `YV-002I`.
+- Tecnología, detalle constructivo e instrumentación definitiva del filtrado final en `TK-007`.
+- Presión de entrada, presión de salida, presión diferencial y turbidez definitivas de `TK-007`.
+- Setpoints y tolerancias definitivos de las recetas.
 - Confirmación del rango de pH y selección de su instrumento.
 - Límites y ventana de estabilidad de densidad.
 - Tiempos definitivos de fermentación y maduración.
-- Tipo y tecnología definitiva de Filtrado II.
-- Presión de entrada, presión de salida, presión diferencial y turbidez de TK-007.
-- Modelos y hojas de datos de instrumentos no seleccionados.
+- Modelos, rangos y hojas de datos de instrumentos no seleccionados.
 - Presiones de operación y alivio definitivas.
 - Volúmenes útiles y dimensiones finales de los equipos.
-- Curvas de P-001, P-002 y P-003.
+- Curvas de `P-001`, `P-002` y `P-003`.
 - Kv/Cv y acción de falla de las válvulas de control.
 - Parámetros, fases, concentraciones, temperaturas y tiempos de CIP.
-- Confirmación de la bomba usada después de Filtrado II en la narrativa de control.
-- Definición de la línea receptora después de maduración/embotellado.
+- Definición detallada de la línea de embotellado y sus realimentaciones.
 - Confirmación de señales de posición para cada válvula y realimentación de marcha para cada motor.
 
 ## Arquitectura de comunicación pendiente

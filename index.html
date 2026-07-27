@@ -40,8 +40,9 @@
         <button class="nav-item" data-view="boiling"><span>CC</span>Cocción</button>
         <button class="nav-item" data-view="cooling"><span>EN</span>Enfriamiento</button>
         <button class="nav-item" data-view="fermentation"><span>FE</span>Fermentación</button>
-        <button class="nav-item" data-view="filter2"><span>F2</span>Filtrado II</button>
         <button class="nav-item" data-view="maturation"><span>MD</span>Maduración</button>
+        <button class="nav-item" data-view="filter2"><span>FF</span>Filtrado final</button>
+        <button class="nav-item" data-view="packaging"><span>EM</span>Embotellado</button>
         <button class="nav-item" data-view="cip"><span>CP</span>CIP y limpieza</button>
         <button class="nav-item" data-view="batches"><span>LT</span>Lotes</button>
         <button class="nav-item" data-view="trends"><span>HI</span>Históricos</button>
@@ -118,7 +119,8 @@
                 <span><i class="media-key wort"></i>Mosto</span>
                 <span><i class="media-key beer"></i>Cerveza</span>
                 <span><i class="media-key steam"></i>Vapor</span>
-                <span><i class="media-key glycol"></i>Glicol</span>
+                <span><i class="media-key glycol"></i>Suministro frío</span>
+                <span><i class="media-key cold-return"></i>Retorno al chiller</span>
                 <span><i class="media-key cip"></i>CIP / retorno</span>
               </div>
             </div>
@@ -147,8 +149,9 @@
         <section class="view stage-view" id="view-boiling" data-title="Cocción"><div id="stage-boiling"></div></section>
         <section class="view stage-view" id="view-cooling" data-title="Enfriamiento"><div id="stage-cooling"></div></section>
         <section class="view stage-view" id="view-fermentation" data-title="Fermentación"><div id="stage-fermentation"></div></section>
-        <section class="view stage-view" id="view-filter2" data-title="Filtrado II"><div id="stage-filter2"></div></section>
         <section class="view stage-view" id="view-maturation" data-title="Maduración"><div id="stage-maturation"></div></section>
+        <section class="view stage-view" id="view-filter2" data-title="Filtrado final"><div id="stage-filter2"></div></section>
+        <section class="view stage-view" id="view-packaging" data-title="Embotellado"><div id="stage-packaging"></div></section>
 
         <section class="view" id="view-batches" data-title="Lotes">
           <div class="batches-layout">
@@ -237,8 +240,8 @@
             <article class="panel"><div class="panel-heading"><div><p class="eyebrow">SESIÓN</p><h2>Usuario y simulación</h2></div></div>
               <form id="settings-form" class="form-stack">
                 <label>Usuario actual<input name="username" value="Operador 01"></label>
-                <label>Cantidad de fermentadores<input name="fermenters" type="number" min="2" max="2" value="2"></label>
-                <label>Tanques de maduración<input name="maturationTanks" type="number" min="4" max="4" value="4"></label>
+                <label>Cantidad de fermentadores<input name="fermenters" type="number" min="5" max="5" value="5"></label>
+                <label>Tanques de maduración<input name="maturationTanks" type="number" min="10" max="10" value="10"></label>
                 <label>Duración de etapa (s)<input name="stageSeconds" type="number" min="3" max="60" value="9"></label>
                 <button class="btn primary" type="submit">Guardar configuración</button>
               </form>
@@ -249,7 +252,7 @@
         </section>
 
         <section class="view" id="view-about" data-title="Acerca del sistema">
-          <article class="panel about-panel"><p class="eyebrow">DAGOCA</p><h2>Sistema de Supervisión y Control de Cervecería Artesanal</h2><p>Aplicación académica para representar la secuencia de fabricación, instrumentación, gestión de alarmas y trazabilidad de lotes.</p><dl><dt>Versión</dt><dd>1.1</dd><dt>Calidad de señales</dt><dd>SIMULATED</dd><dt>Conexión PLC</dt><dd>No configurada</dd><dt>Persistencia</dt><dd>localStorage</dd></dl><p class="engineering-note">No sustituye protecciones mecánicas, circuitos de seguridad ni validación de ingeniería.</p></article>
+          <article class="panel about-panel"><p class="eyebrow">DAGOCA</p><h2>Sistema de Supervisión y Control de Cervecería Artesanal</h2><p>Aplicación académica para representar la secuencia de fabricación, instrumentación, gestión de alarmas y trazabilidad de lotes.</p><dl><dt>Versión</dt><dd>1.2</dd><dt>Calidad de señales</dt><dd>SIMULATED</dd><dt>Conexión PLC</dt><dd>No configurada</dd><dt>Persistencia</dt><dd>localStorage · esquema v2</dd></dl><p class="engineering-note">No sustituye protecciones mecánicas, circuitos de seguridad ni validación de ingeniería.</p></article>
         </section>
       </main>
     </div>

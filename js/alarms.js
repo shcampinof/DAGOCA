@@ -22,12 +22,19 @@ const alarmCatalog = [
   ["Media", "AIT-SG-TF", "Fermentación sin progreso de densidad", "Fermentación"],
   ["Alta", "PAH-TF", "Presión alta en fermentador", "Fermentación"],
   ["Media", "TAL/H-TM", "Temperatura fuera de rango", "Maduración"],
-  ["Media", "AIT-125", "Turbidez simulada alta en Filtrado II", "TK-007"],
-  ["Alta", "PDT-125", "Diferencial simulado alto en Filtrado II", "TK-007"],
+  ["Media", "AIT-125", "Turbidez simulada alta en filtrado final", "TK-007"],
+  ["Alta", "PDT-125", "Diferencial simulado alto en filtrado final", "TK-007"],
   ["Media", "CIP-SEQ", "Limpieza incompleta", "CIP-01"],
   ["Alta", "ROUTE-INT", "Ruta de válvulas incompatible", "Válvulas"],
   ["Crítica", "COM-PLC", "Falla de comunicación PLC-HMI", "Control"]
-  ,["Alta", "PS-24V", "Baja tensión de alimentación 24 VDC", "Control"]
+  ,["Alta", "PS-24V", "Baja tensión de alimentación 24 VDC", "Control"],
+  ...Object.entries(newTankInstrumentProfiles).flatMap(([tank, profile]) => [
+    ["Alta", `TAH-${profile.temperature}`, `Temperatura alta en ${tank}`, tank],
+    ["Media", `TAL-${profile.temperature}`, `Temperatura baja en ${tank}`, tank],
+    ["Alta", `PAH-${profile.temperature}`, `Presión alta en ${tank}`, tank],
+    ["Alta", `LSH-${profile.high}`, `Nivel alto en ${tank}`, tank],
+    ["Alta", `LSL-${profile.low}`, `Nivel bajo en ${tank}`, tank]
+  ])
 ];
 
 const safeRead = () => {

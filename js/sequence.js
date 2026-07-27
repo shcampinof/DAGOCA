@@ -51,25 +51,25 @@ const operatorSequence = Object.freeze([
     code: "FERMENTATION",
     stage: "fermentation",
     status: "Fermentación en curso",
-    action: "Controlando temperatura, presión y densidad",
-    next: "Transferir a TK-007",
-    conditions: ["Tiempo mínimo", "Temperatura correcta", "Presión correcta", "Densidad estable"]
-  },
-  {
-    code: "SECONDARY_FILTRATION",
-    stage: "filter2",
-    status: "Filtrado II en curso",
-    action: "Filtrando cerveza en TK-007",
-    next: "Transferir a maduración",
-    conditions: ["TK-007 disponible", "Nivel operativo", "Tanque de maduración disponible"]
+    action: "Habilitando enfriamiento y controlando temperatura, presión y densidad",
+    next: "Transferir al madurador seleccionado",
+    conditions: ["Tiempo mínimo", "Temperatura correcta", "Presión correcta", "Densidad estable", "Madurador disponible"]
   },
   {
     code: "MATURATION",
     stage: "maturation",
     status: "Maduración en curso",
-    action: "Controlando temperatura del tanque asignado",
-    next: "Liberar lote para embotellado",
-    conditions: ["Tiempo mínimo", "Temperatura estable", "Autorización de transferencia"]
+    action: "Habilitando enfriamiento y controlando temperatura del tanque asignado",
+    next: "Transferir a TK-007",
+    conditions: ["Tiempo mínimo", "Temperatura estable", "TK-007 disponible"]
+  },
+  {
+    code: "FINAL_FILTRATION",
+    stage: "filter2",
+    status: "Filtrado final en curso",
+    action: "Filtrando cerveza en TK-007",
+    next: "Transferir a embotellado",
+    conditions: ["Ruta compatible", "Turbidez dentro de límite", "Embotellado disponible"]
   },
   {
     code: "PACKAGING",
