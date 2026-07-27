@@ -1,124 +1,95 @@
-# DAGOCA · Sistema SCADA
+# DAGOCA SCADA
 
-Sistema web académico de supervisión y control para una cervecería artesanal. Representa la preparación de agua, maceración, filtrado primario, cocción, enfriamiento, fermentación, maduración, filtrado final, embotellado y limpieza CIP.
+SCADA web interactivo para supervisar una cervecería artesanal por lotes. La interfaz reproduce la distribución funcional de los P&ID del proyecto, muestra equipos, tuberías, actuadores, variables, setpoints, alarmas e interlocks y se ejecuta sin backend en GitHub Pages.
 
-> No controla equipos reales ni sustituye protecciones eléctricas, mecánicas, sanitarias o instrumentadas de seguridad. Todas las señales se identifican como `SIMULATED`.
+Sitio: <https://shcampinof.github.io/DAGOCA/>
 
-## Ejecutar
+> Es una simulación de supervisión. No controla equipos reales ni sustituye protecciones eléctricas, mecánicas, sanitarias o instrumentadas de seguridad.
 
-Puede abrir `index.html` directamente o servir el directorio:
+## Ejecución
 
-```bash
-python -m http.server 8080
+Puede abrirse `index.html` directamente o mediante un servidor estático:
+
+```powershell
+python -m http.server 8000
 ```
 
-Después abra `http://localhost:8080`. Chart.js está almacenado en `vendor/chart.umd.min.js`; las tendencias no dependen de un CDN.
-
-## Estructura
-
-```text
-.
-├── index.html
-├── css/
-│   └── styles.css
-├── js/
-│   ├── app.js
-│   ├── state.js
-│   ├── process.js
-│   ├── grafcet.js
-│   ├── alarms.js
-│   ├── history.js
-│   ├── batches.js
-│   ├── recipes.js
-│   ├── cip.js
-│   ├── permissions.js
-│   └── ui.js
-├── vendor/
-│   └── chart.umd.min.js
-├── assets/
-└── .github/workflows/deploy-pages.yml
-```
+Después abra `http://localhost:8000`.
 
 ## Pantallas
 
-- Vista general con estado de planta, producción semanal, lote, etapa, alarmas, disponibilidad y CIP.
-- Proceso con mímico interactivo, tanques configurables y rutas de agua, producto y limpieza.
-- GRAFCET 0.10, 0.20 y 0.30 con pasos, transiciones, bloqueos y temporizadores.
-- Lotes con asignación exclusiva de fermentador y tanque de maduración.
-- Recetas DAGOCA Clara y DAGOCA Ámbar.
-- Tendencias e históricos con Chart.js local y exportación CSV.
-- Alarmas con reconocimiento, normalización y cierre.
-- CIP con ocho fases y bloqueo de equipos.
-- Mantenimiento, configuración y diagnóstico básico.
+| Pantalla | Contenido principal |
+|---|---|
+| Vista general | Estado de planta, lote, etapa, alarmas y ruta completa por ocho etapas |
+| Agua | TK-001, TK-002, LV-100, P-001 y control de nivel |
+| Maceración | TK-003, AG1, vapor, TC-105, tiempos y confirmación de malta |
+| Filtrado I | TK-004, niveles, LC-106, PI-106 y P-002 |
+| Cocción | TK-005, vapor, TC-107, tiempos, lúpulo y P-003 |
+| Enfriamiento | E-001, TC-109, TV-109, PI-109 y permiso a fermentación |
+| Fermentación | TK-006A/B, temperatura, presión, densidad y disponibilidad |
+| Filtrado II | TK-007, niveles e instrumentación simulada pendiente |
+| Maduración | TK-008A/B/C/D y lazos individuales de agua helada |
+| CIP y limpieza | P-000, rutas, fases, retorno, drenaje y bloqueos |
+| Lotes | Creación, asignación y trazabilidad |
+| Históricos | Tendencias locales PV/SP y exportación CSV |
+| Alarmas | Ciclo de vida, filtros y reconocimiento |
+| Mantenimiento | Disponibilidad y estado de activos |
+| Configuración | Sesión, simulación y diagnóstico exclusivo de Ingeniería |
 
-## Simulador
+## Equipos y tags principales
 
-La máquina de estados está en `js/process.js`. Los tiempos están comprimidos para presentación. Las transiciones combinan tiempo y condiciones de proceso:
-
-- Maceración: nivel, temperatura, pH y conversión confirmada.
-- Enfriamiento: temperatura de salida y fermentador disponible.
-- Fermentación: tiempo, temperatura, presión y estabilidad de densidad.
-- Maduración: tiempo, temperatura y turbidez.
-- Filtrado final: ruta, disponibilidad y turbidez.
-
-La estabilidad de densidad se evalúa con `isDensityStable()` sobre una ventana configurable de muestras.
-
-## Roles
-
-| Función | Operador | Supervisor | Ingeniería |
-|---|:---:|:---:|:---:|
-| Ver proceso e históricos | ✓ | ✓ | ✓ |
-| Iniciar lotes y reconocer alarmas | ✓ | ✓ | ✓ |
-| Operación manual bajo interlocks | ✓ | ✓ | ✓ |
-| Editar recetas y parámetros CIP | — | ✓ | ✓ |
-| Autorizar transición y resetear secuencia | — | ✓ | ✓ |
-| Cerrar alarmas normalizadas | — | ✓ | ✓ |
-| Forzar alarmas en simulación | — | — | ✓ |
-| Configurar equipos y cantidades | — | — | ✓ |
-| Restablecer datos locales | — | — | ✓ |
+| Tag | Servicio |
+|---|---|
+| TK-001 | Filtrado de agua |
+| TK-002 | Almacenamiento de agua |
+| P-001 | Transferencia a maceración |
+| TK-003 | Maceración |
+| TK-004 | Filtrado I |
+| P-002 | Transferencia a cocción |
+| TK-005 | Cocción |
+| P-003 | Transferencia por enfriamiento |
+| E-001 | Intercambiador de calor |
+| TK-006A / TK-006B | Fermentación |
+| TK-007 | Filtrado II |
+| TK-008A / B / C / D | Maduración |
+| P-000 | Bomba del circuito CIP |
 
 ## Interlocks implementados
 
-| Comando o transición | Condición que bloquea |
+| Acción | Condición de bloqueo |
 |---|---|
-| Arranque B1 | T2 sin nivel de succión |
-| Calentamiento | Tanque por debajo del nivel mínimo |
-| Crear lote | Fermentador o maduración ocupado, sucio, abierto o en mantenimiento |
-| Producción | Equipo seleccionado en CIP |
-| Operación manual | Emergencia activa o modo incompatible |
-| Secuencia automática | Modo mantenimiento |
-| Fermentación a maduración | Densidad inestable, presión/temperatura incorrecta o destino no disponible |
-| Maduración a filtrado | Tiempo, temperatura o turbidez fuera de condición |
-| Reset de emergencia | Requiere rol Supervisor o Ingeniería |
+| Iniciar o continuar | Parada de emergencia enclavada |
+| Operar en automático | Modo mantenimiento activo |
+| Operar bomba manual | Equipo sucio, en CIP o sin permiso |
+| Arrancar P-001 | TK-002 sin nivel de succión |
+| Habilitar vapor | TK-003 o TK-005 sin nivel mínimo |
+| Transferir a fermentación | TT-109 igual o superior a 35 °C |
+| Reservar destino | Tanque ocupado, sucio, abierto o en mantenimiento |
+| Iniciar CIP | Equipo con lote o ruta de producción activa |
+| Reiniciar | Requiere rol y liberación de emergencia |
 
-Cuando un comando se rechaza, la interfaz informa motivo, equipo responsable y acción requerida.
+## Arquitectura
 
-## Persistencia
+La aplicación utiliza HTML, CSS y JavaScript sin framework, Chart.js local, rutas relativas y `localStorage`.
 
-`localStorage` conserva usuario, rol, modo, configuración, lotes, recetas, alarmas, históricos, equipos, GRAFCET mediante el estado del lote, eventos y estado CIP. El botón **Restablecer simulación**, disponible para Ingeniería, elimina las claves `dagoca-*` después de solicitar confirmación.
+- `js/sequence.js`: lógica secuencial interna y traducción a mensajes operativos. No existe una pantalla GRAFCET.
+- `js/data-provider.js`: contrato de datos y `SimulationDataProvider`. Incluye clases de extensión para OPC UA, WebSocket y gateway EtherNet/IP.
+- `js/process.js`: modelo de equipos, lotes, interlocks y simulación.
+- `js/alarms.js`: ciclo de vida de alarmas.
+- `js/history.js`: históricos, PV/SP y CSV.
+- `js/cip.js`: fases y rutas CIP.
+- `PENDIENTES_PROCESO.md`: conflictos documentales y datos no confirmados.
 
-## Parámetros pendientes
+PLC previsto: Allen-Bradley CompactLogix 5380 5069-L320ER con Studio 5000. El navegador no debe conectarse directamente al PLC; la conexión futura requiere gateway y backend.
 
-Requieren validación de ingeniería:
+## Publicación
 
-- tiempos, temperaturas y límites definitivos de receta;
-- tolerancia y ventana de estabilidad de densidad;
-- concentración, conductividad y temperatura CIP;
-- límites de presión diferencial y turbidez de T7;
-- selección final de instrumentos y rangos;
-- matriz causa-efecto, rutas de válvulas y análisis de riesgos;
-- estrategia de filtración tangencial/crossflow.
+GitHub Pages publica automáticamente la rama `main`. Para actualizar el sitio:
 
-## Publicar en GitHub Pages
-
-Los cambios en `main` se despliegan automáticamente:
-
-```bash
+```powershell
 git add .
-git commit -m "descripción del cambio"
-git push
+git commit -m "Descripción del cambio"
+git push origin main
 ```
 
-El workflow de `.github/workflows/deploy-pages.yml` publica la raíz del repositorio. La URL de producción es:
-
-https://shcampinof.github.io/DAGOCA/
+Tras el `push`, espere a que termine el workflow de Pages y recargue el sitio.

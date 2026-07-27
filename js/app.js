@@ -10,7 +10,8 @@ let cipTimer = null;
 let cipRunning = false;
 let selectedCip = new Set();
 
-const stageEquipmentTags = ["CIP-01", "T1", "T3", "T4", "T5", "IC1", "TF", "TM", "CIP-01", "TM", "T7", "EMB-01"];
+const stageEquipmentTags = ["CIP-01", "TK-001", "TK-003", "TK-004", "TK-005", "E-001", "FERMENTER", "TK-007", "MATURATION", "EMB-01"];
+const dataProvider = new SimulationDataProvider(simulator);
 
 function safeStore(key, value) {
   try { localStorage.setItem(key, value); } catch { toast("No fue posible guardar la preferencia local.", "error"); }
@@ -78,8 +79,8 @@ function classicUnit(equipment, options = {}) {
 
 function renderMimic() {
   const get = tag => simulator.equipment.get(tag);
-  const fermenters = [...simulator.equipment.values()].filter(e => e.tag.startsWith("TF-"));
-  const maturation = [...simulator.equipment.values()].filter(e => e.tag.startsWith("TM-"));
+  const fermenters = [...simulator.equipment.values()].filter(e => e.tag.startsWith("TK-006"));
+  const maturation = [...simulator.equipment.values()].filter(e => e.tag.startsWith("TK-008"));
   const active = simulator.activeStage;
   $("#plant-mimic").innerHTML = `
     <div class="classic-board ${simulator.running ? "system-running" : ""}">
@@ -118,30 +119,33 @@ function renderMimic() {
       <div class="route-tag water-route">AGUA DE PROCESO →</div>
       <div class="route-tag product-route">MOSTO / PRODUCTO →</div>
       <div class="primary-equipment">
-        ${classicUnit(get("T1"), { shape: "filter", process: "agua" })}
-        ${classicUnit(get("T2"), { process: "agua" })}
-        ${classicUnit(get("T3"), { process: "mosto" })}
-        ${classicUnit(get("T4"), { shape: "filter", process: "mosto" })}
-        ${classicUnit(get("T5"), { process: "mosto" })}
-        ${classicUnit(get("IC1"), { shape: "cooler", process: "refrigerante" })}
+        ${classicUnit(get("TK-001"), { shape: "filter", process: "agua" })}
+        ${classicUnit(get("TK-002"), { process: "agua" })}
+        ${classicUnit(get("TK-003"), { process: "mosto" })}
+        ${classicUnit(get("TK-004"), { shape: "filter", process: "mosto" })}
+        ${classicUnit(get("TK-005"), { process: "mosto" })}
+        ${classicUnit(get("E-001"), { shape: "cooler", process: "refrigerante" })}
       </div>
       <div class="valve-row top-valves">
-        ${["V2", "XV-003", "XV-004"].map((tag, index) => `<button class="valve-symbol ${simulator.running && active >= index * 2 ? "open" : ""}" data-equipment="${tag}" title="${tag}"><i></i><b>${tag}</b></button>`).join("")}
+        ${["LV-100", "LV-104", "LV-108"].map((tag, index) => `<button class="valve-symbol ${simulator.running && active >= index * 2 ? "open" : ""}" data-equipment="${tag}" title="${tag}"><i></i><b>${tag}</b></button>`).join("")}
       </div>
-      <button class="inline-actuator inline-b1 ${get("B1").status === "Operando" ? "run" : ""}" data-equipment="B1" title="B1 · Transferencia T2 a T3"><i>▶</i><b>B1</b></button>
+      <button class="inline-actuator inline-b1 ${get("P-001").status === "Operando" ? "run" : ""}" data-equipment="P-001" title="P-001 · Transferencia TK-002 a TK-003"><i>▶</i><b>P-001</b></button>
       <button class="inline-actuator inline-ag1 ${get("AG1").status === "Operando" ? "run" : ""}" data-equipment="AG1" title="AG1 · Agitador de maceración"><i>↻</i><b>AG1</b></button>
       <div class="bank fermenter-bank">
-        <div class="bank-header"><b>COLECTOR T6</b><span>Selección automática de fermentador</span></div>
+        <div class="bank-header"><b>COLECTOR TK-006</b><span>Selección automática de fermentador</span></div>
         <div class="classic-tank-row">${fermenters.map(e => classicUnit(e, { compact: true, process: "cerveza", showGauge: false })).join("")}</div>
       </div>
+      <div class="filter2-bank">
+        <div class="bank-header"><b>FILTRADO II</b></div>
+        ${classicUnit(get("TK-007"), { compact: true, shape: "filter", process: "cerveza", showGauge: false })}
+      </div>
       <div class="bank maturation-bank">
-        <div class="bank-header"><b>COLECTOR TM</b><span>Transferencia a maduración</span></div>
+        <div class="bank-header"><b>COLECTOR TK-008</b><span>Selección de maduración</span></div>
         <div class="classic-tank-row">${maturation.map(e => classicUnit(e, { compact: true, process: "cerveza", showGauge: false })).join("")}</div>
       </div>
       <div class="final-skid">
-        ${classicUnit(get("T7"), { compact: true, shape: "filter", process: "cerveza", showGauge: false })}
         <div class="pump-set">
-          ${["B1", "B2", "B3"].map((tag, index) => `<button class="pump-symbol ${simulator.running && active >= index * 4 ? "run" : ""}" data-equipment="${tag}"><i>▶</i><b>${tag}</b><small>${get(tag).status}</small></button>`).join("")}
+          ${["P-001", "P-002", "P-003"].map((tag, index) => `<button class="pump-symbol ${simulator.running && active >= index * 2 ? "run" : ""}" data-equipment="${tag}"><i>▶</i><b>${tag}</b><small>${get(tag).status}</small></button>`).join("")}
         </div>
         <button class="bottling-machine ${active === 11 ? "active" : ""}" data-equipment="EMB-01"><i>▥ ▥ ▥</i><b>EMBOTELLADO</b><small>EMB-01 · ${get("EMB-01").status}</small></button>
       </div>
@@ -165,35 +169,202 @@ function renderMetrics() {
 
 function renderHome() {
   const batch = simulator.activeBatch;
-  const available = [...simulator.equipment.values()].filter(e => e.available).length;
   const activeAlarms = alarms.alarms.filter(a => !["CERRADA", "Normalizada"].includes(a.state)).length;
-  const weeklyLiters = simulator.batches.filter(b => b.startedAt && Date.now() - new Date(b.startedAt).getTime() < 7 * 86400000).reduce((sum, b) => sum + b.volume, 0);
   const cards = [
     ["Estado de planta", simulator.emergency ? "EMERGENCIA" : simulator.running ? "EN PRODUCCIÓN" : "DISPONIBLE", simulator.mode.toUpperCase(), "#18795c"],
     ["Lote activo", batch?.id || "SIN LOTE", batch?.recipe || "Sin receta asignada", "#2e6f9e"],
     ["Etapa", simulator.currentStep()?.name || "EN ESPERA", formatTime(simulator.stageProgress, true), "#b6782e"],
-    ["Alarmas", activeAlarms, "Activas en el sistema", "#c23b45"],
-    ["Producción semanal", `${weeklyLiters} L`, `${simulator.batches.length} lotes registrados`, "#257b8b"],
-    ["Equipos disponibles", available, `${simulator.equipment.size} equipos configurados`, "#61727e"],
-    ["CIP", cipRunning ? "ACTIVO" : "DISPONIBLE", cipRunning ? "Ruta bloqueada" : "Sin rutas en limpieza", "#2e6f9e"],
-    ["Calidad de señal", "SIMULATED", "Sin conexión PLC", "#77559a"]
+    ["Alarmas", activeAlarms, "Activas en el sistema", "#c23b45"]
   ];
   $("#home-metrics").innerHTML = cards.map(([label, value, detail, color]) => `<div class="metric" style="--accent:${color}"><span>${label}</span><strong>${value}</strong><small>${detail}</small></div>`).join("");
   $("#home-status").innerHTML = `<dl class="status-list"><dt>Modo</dt><dd>${simulator.mode.toUpperCase()}</dd><dt>Receta programada</dt><dd>${batch?.recipe || "—"}</dd><dt>Fermentador</dt><dd>${batch?.fermenter || "—"}</dd><dt>Maduración</dt><dd>${batch?.maturation || "—"}</dd></dl>`;
   $("#home-events").innerHTML = simulator.events.slice(0, 6).map(event => `<li><time>${new Date(event.time).toLocaleTimeString("es-CO")}</time><span>${event.message}</span></li>`).join("") || "<li>Sin eventos registrados.</li>";
 }
 
-function renderMiniGrafcet() {
-  const groups = [
-    ["0.10", "Elaboración y selección", [0, 5]],
-    ["0.20", "Fermentación y transferencia", [6, 8]],
-    ["0.30", "Maduración y filtrado final", [9, 11]]
-  ];
-  $("#mini-grafcet").innerHTML = groups.map(([code, name, range]) => {
-    const active = simulator.activeStage >= range[0] && simulator.activeStage <= range[1];
-    const done = simulator.activeStage > range[1] || simulator.activeBatch?.status === "Completado";
-    return `<div class="mini-step ${active ? "active" : ""}"><strong>${code}</strong><span>${name}</span><small>${done ? "✓ Completo" : active ? "● Activo" : "Pendiente"}</small></div>`;
-  }).join("");
+const stageScreens = Object.freeze({
+  water: {
+    index: 1, title: "Filtrado y almacenamiento de agua", short: "Agua", media: "water",
+    tags: ["TK-001", "TK-002"], actuators: ["LV-100", "P-001"],
+    instruments: ["LSL-100", "LSH-100", "LC-100", "LY-100", "PI-102"],
+    origin: "Entrada de agua", destination: "TK-003", loop: "LC-100", pv: "Nivel TK-002", sp: "Pendiente de validación",
+    note: "TK-001 descarga por gravedad hacia TK-002 según P&ID001."
+  },
+  mashing: {
+    index: 2, title: "Maceración", short: "Maceración", media: "wort",
+    tags: ["TK-003"], actuators: ["P-001", "AG1", "TV-105", "LV-104"],
+    instruments: ["LSL-104", "LSH-104", "TE-105", "TT-105", "TC-105"],
+    origin: "TK-002 + malta manual", destination: "TK-004", loop: "TC-105", pv: "Temperatura TK-003", sp: "66,0 °C · valor de simulación",
+    note: "Chaqueta de vapor, agitador AG1, CIP y desagüe."
+  },
+  filter1: {
+    index: 3, title: "Filtrado I", short: "Filtrado I", media: "wort",
+    tags: ["TK-004"], actuators: ["LV-104", "P-002"],
+    instruments: ["LSL-106", "LSH-106", "LC-106", "PI-106"],
+    origin: "TK-003", destination: "TK-005", loop: "LC-106", pv: "Nivel TK-004", sp: "Pendiente de validación",
+    note: "El elemento de filtración forma parte de TK-004."
+  },
+  boiling: {
+    index: 4, title: "Cocción", short: "Cocción", media: "wort",
+    tags: ["TK-005"], actuators: ["P-002", "TV-107", "LV-108", "P-003"],
+    instruments: ["LSL-108", "LC-108", "TE-107", "TT-107", "TC-107"],
+    origin: "TK-004 + lúpulo manual", destination: "E-001", loop: "TC-107", pv: "Temperatura TK-005", sp: "100,0 °C · valor de simulación",
+    note: "Calentamiento por vapor; tiempo de cocción y reposo configurables."
+  },
+  cooling: {
+    index: 5, title: "Enfriamiento", short: "Enfriamiento", media: "glycol",
+    tags: ["E-001"], actuators: ["P-003", "TV-109"],
+    instruments: ["TT-109", "TC-109", "TV-109", "PI-109"],
+    origin: "TK-005", destination: "TK-006A / TK-006B", loop: "TC-109", pv: "Temperatura de salida", sp: "18,0 °C · valor de simulación",
+    note: "E-001 es un intercambiador. Transferencia bloqueada con TT-109 ≥ 35 °C."
+  },
+  fermentation: {
+    index: 6, title: "Fermentación", short: "Fermentación", media: "beer",
+    tags: ["TK-006A", "TK-006B"], actuators: ["LV-111"],
+    instruments: ["LSH-111", "LSL-112", "TT-111", "TC-111", "PT-111", "AIT-111"],
+    origin: "E-001 + levadura manual", destination: "TK-007", loop: "TC-111", pv: "Temperatura del tanque asignado", sp: "Pendiente de validación",
+    note: "Dos fermentadores seleccionables con entrada y salida independientes."
+  },
+  filter2: {
+    index: 7, title: "Filtrado II", short: "Filtrado II", media: "beer",
+    tags: ["TK-007"], actuators: ["LV-125"],
+    instruments: ["LSH-125", "LSL-125", "LC-125", "LY-125", "AIT-125", "PDT-125"],
+    origin: "TK-006A / TK-006B", destination: "TK-008A / B / C / D", loop: "LC-125", pv: "Nivel TK-007", sp: "Pendiente de validación",
+    note: "Instrumentación de presión diferencial y turbidez: valor simulado; tipo de filtro pendiente."
+  },
+  maturation: {
+    index: 8, title: "Maduración", short: "Maduración", media: "beer",
+    tags: ["TK-008A", "TK-008B", "TK-008C", "TK-008D"], actuators: ["TV-113", "TV-116", "TV-119", "TV-122"],
+    instruments: ["TT-113", "TC-113", "TT-116", "TC-116", "TT-119", "TC-119", "TT-122", "TC-122"],
+    origin: "TK-007", destination: "Embotellado", loop: "TC-113 / 116 / 119 / 122", pv: "Temperatura por tanque", sp: "1–4 °C recomendado; validar receta",
+    note: "Cuatro tanques conectados a una línea común de agua helada."
+  }
+});
+
+function getStageAlarmCount(spec) {
+  return alarms.alarms.filter(alarm => alarm.state.startsWith("ACTIVA") && [...spec.tags, ...spec.actuators].some(tag => alarm.equipment === tag || alarm.tag.includes(tag.replace("TK-", "")))).length;
+}
+
+function renderStageOverview() {
+  const activeStage = simulator.activeStage;
+  $("#stage-overview").innerHTML = `
+    <div class="overview-route-head"><strong>DISTRIBUCIÓN GENERAL DE PROCESO</strong><button class="text-button" data-go="process">Abrir sinóptico general →</button></div>
+    <div class="overview-route">
+      ${Object.entries(stageScreens).map(([key, spec], position) => {
+        const equipment = simulator.equipment.get(spec.tags[0]);
+        const active = activeStage === spec.index;
+        const alarmCount = getStageAlarmCount(spec);
+        return `<article class="stage-summary ${active ? "active" : ""}">
+          <header><span>${String(position + 1).padStart(2, "0")}</span><b>${spec.short}</b><i class="status-dot ${alarmCount ? "alarm" : active ? "running" : "ready"}"></i></header>
+          <strong>${spec.tags.join(" · ")}</strong>
+          <dl><dt>Estado</dt><dd>${active ? getOperatorSequenceState(simulator).status : equipment?.status || "Disponible"}</dd><dt>Variable</dt><dd>${equipment?.temperature?.toFixed?.(1) ?? "—"} °C</dd><dt>Lote</dt><dd>${equipment?.batchId || "—"}</dd><dt>Alarmas</dt><dd>${alarmCount}</dd></dl>
+          <button class="btn" data-go="${key}">Ver detalle</button>
+        </article>${position < 7 ? '<span class="overview-connector" aria-hidden="true">→</span>' : ""}`;
+      }).join("")}
+    </div>`;
+  $("#stage-overview").querySelectorAll("[data-go]").forEach(button => button.addEventListener("click", () => switchView(button.dataset.go)));
+}
+
+function actuatorMarkup(tag, stageActive) {
+  const equipment = simulator.equipment.get(tag);
+  const isPump = tag.startsWith("P-");
+  const isAgitator = tag === "AG1";
+  const running = equipment ? equipment.status === "Operando" : stageActive;
+  const state = equipment ? (equipment.position || equipment.status) : (stageActive ? "Abierta" : "Cerrada");
+  return `<button class="stage-actuator ${isPump ? "pump" : isAgitator ? "ag-motor" : "valve"} ${running ? "run" : ""}" ${equipment ? `data-equipment="${tag}"` : "disabled"} title="${tag}">
+    <i>${isPump ? "▶" : isAgitator ? "↻" : "◁▷"}</i><b>${tag}</b><small>${state}</small>
+  </button>`;
+}
+
+function stageStateMarkup(spec) {
+  const sequence = getOperatorSequenceState(simulator);
+  const isActive = simulator.activeStage === spec.index;
+  const progress = Math.min(100, Math.round(simulator.stageProgress / demoConfig.simulation.secondsPerStage * 100));
+  const pendingText = isActive ? simulator.blockReason() : simulator.activeStage < spec.index ? "Esperando etapa anterior" : "Etapa completada";
+  return `<div class="panel-heading"><div><p class="eyebrow">ESTADO DE LA ETAPA</p><h2>${isActive ? sequence.status : spec.title}</h2></div><span class="badge ${isActive ? "Reconocida" : ""}">${isActive ? "EN CURSO" : simulator.activeStage > spec.index ? "COMPLETADA" : "DISPONIBLE"}</span></div>
+    <dl class="stage-state-values">
+      <dt>Acción activa</dt><dd>${isActive ? sequence.action : "Sin acción automática"}</dd>
+      <dt>Tiempo</dt><dd>${isActive ? `${formatTime(simulator.stageProgress)} / ${formatTime(demoConfig.simulation.secondsPerStage)}` : "—"}</dd>
+      <dt>Condición para continuar</dt><dd>${pendingText}</dd>
+      <dt>Interlock activo</dt><dd>${simulator.emergency ? "Parada de emergencia" : isActive && !simulator.canAdvance() ? pendingText : "Ninguno"}</dd>
+      <dt>Próximo destino</dt><dd>${spec.destination}</dd>
+    </dl>
+    <div class="stage-progress"><i style="width:${isActive ? progress : simulator.activeStage > spec.index ? 100 : 0}%"></i></div>`;
+}
+
+function renderStageScreen(key, spec) {
+  const target = $(`#stage-${key}`);
+  if (!target) return;
+  const stageActive = simulator.running && simulator.activeStage === spec.index;
+  const equipment = spec.tags.map(tag => simulator.equipment.get(tag)).filter(Boolean);
+  const alarmCount = getStageAlarmCount(spec);
+  const pvIsLevel = ["water", "filter1", "filter2"].includes(key);
+  const pvValue = pvIsLevel ? equipment[0]?.level : equipment[0]?.temperature?.toFixed?.(1);
+  target.innerHTML = `
+    <div class="stage-screen-head">
+      <div><p class="eyebrow">ÁREA DE PROCESO · P&ID</p><h2>${spec.title}</h2><p>${spec.origin} → ${spec.destination}</p></div>
+      <div class="stage-head-status"><span><i class="status-dot ${alarmCount ? "alarm" : stageActive ? "running" : "ready"}"></i>${alarmCount ? `${alarmCount} alarma(s)` : stageActive ? "Etapa en operación" : "Sin alarmas activas"}</span><button class="btn" data-go="home">Vista general</button></div>
+    </div>
+    <div class="stage-workspace">
+      <article class="stage-mimic panel">
+        <div class="mimic-title"><b>RUTA DE PROCESO</b><span>${spec.note}</span></div>
+        <div class="stage-route route-${spec.media} ${stageActive ? "active" : ""}">
+          <span class="route-terminal">${spec.origin}</span>
+          <i class="route-line"></i>
+          ${equipment.map((item, index) => `${classicUnit(item, { compact: equipment.length > 2, shape: item.type === "filter" ? "filter" : item.type === "cooler" ? "cooler" : "tank", process: spec.media, showGauge: equipment.length <= 2 })}${index < equipment.length - 1 ? '<i class="route-line"></i>' : ""}`).join("")}
+          <i class="route-line"></i>
+          <span class="route-terminal">${spec.destination}</span>
+        </div>
+        <div class="stage-actuators">${spec.actuators.map(tag => actuatorMarkup(tag, stageActive)).join("")}</div>
+        <div class="utility-lines">
+          <span class="utility cip">CIP · línea discontinua</span>
+          ${["mashing", "boiling"].includes(key) ? '<span class="utility steam">Vapor · línea tramada</span>' : ""}
+          ${["cooling", "fermentation", "maturation"].includes(key) ? '<span class="utility glycol">Agua fría / helada · línea cian</span>' : ""}
+          <span class="utility drain">Desagüe · línea gris</span>
+        </div>
+      </article>
+      <aside class="panel stage-state-panel">${stageStateMarkup(spec)}</aside>
+    </div>
+    <div class="stage-data-grid">
+      <article class="panel loop-panel">
+        <div class="panel-heading"><div><p class="eyebrow">LAZO DE CONTROL</p><h2>${spec.loop}</h2></div><span class="badge">AUTO</span></div>
+        <div class="loop-values">
+          <span>PV<strong>${pvValue ?? "—"} ${pvIsLevel ? "%" : "°C"}</strong></span>
+          <span>SP<strong>${spec.sp}</strong></span>
+          <span>Salida<strong>${stageActive ? Math.min(100, 18 + simulator.stageProgress * 7) : 0} %</strong></span>
+          <span>Error<strong>${equipment[0]?.setpoint != null ? (equipment[0].setpoint - equipment[0].temperature).toFixed(1) : "—"}</strong></span>
+        </div>
+        <div class="mini-trend" aria-label="Minigráfica PV y SP"><i></i><b></b></div>
+      </article>
+      <article class="panel">
+        <div class="panel-heading"><div><p class="eyebrow">INSTRUMENTACIÓN</p><h2>Señales visibles</h2></div></div>
+        <div class="tag-matrix">${spec.instruments.map(tag => `<span><code>${tag}</code><small>${tag.startsWith("AIT-125") || tag.startsWith("PDT-125") || tag === "AIT-111" ? "VALOR DE SIMULACIÓN" : "SIMULATED"}</small></span>`).join("")}</div>
+      </article>
+      <article class="panel">
+        <div class="panel-heading"><div><p class="eyebrow">LOTE E INTERLOCKS</p><h2>Condiciones operativas</h2></div></div>
+        <dl class="stage-state-values"><dt>Lote</dt><dd>${simulator.activeBatch?.id || "—"}</dd><dt>Receta</dt><dd>${simulator.activeBatch?.recipe || "—"}</dd><dt>Origen</dt><dd>${spec.origin}</dd><dt>Destino</dt><dd>${spec.destination}</dd><dt>CIP</dt><dd>${equipment.some(item => item.cipStatus !== "LIMPIO") ? "ACTIVO / PENDIENTE" : "Disponible"}</dd></dl>
+      </article>
+    </div>
+    ${key === "filter2" ? '<p class="engineering-note"><strong>INSTRUMENTACIÓN PENDIENTE DE SELECCIÓN.</strong> El tipo definitivo de filtro, ΔP y turbidez no están confirmados por el P&ID.</p>' : ""}`;
+  target.querySelectorAll("[data-equipment]").forEach(button => button.addEventListener("click", () => openEquipment(button.dataset.equipment)));
+  target.querySelectorAll("[data-go]").forEach(button => button.addEventListener("click", () => switchView(button.dataset.go)));
+}
+
+function renderStageScreens() {
+  renderStageOverview();
+  Object.entries(stageScreens).forEach(([key, spec]) => renderStageScreen(key, spec));
+  const overviewState = $("#overview-stage-state");
+  if (overviewState) {
+    const spec = Object.values(stageScreens).find(item => item.index === simulator.activeStage) || stageScreens.water;
+    overviewState.innerHTML = stageStateMarkup(spec);
+  }
+  const diagnostics = $("#engineering-diagnostics");
+  diagnostics.hidden = role !== "Ingeniería";
+  if (role === "Ingeniería") {
+    const sequence = getOperatorSequenceState(simulator);
+    diagnostics.innerHTML = `<div class="panel-heading"><div><p class="eyebrow">DIAGNÓSTICO DE INGENIERÍA</p><h2>Secuencia y comunicaciones</h2></div></div>
+      <dl class="status-list"><dt>SEQUENCE_STEP</dt><dd>${sequence.code}</dd><dt>Proveedor de datos</dt><dd>SimulationDataProvider</dd><dt>PLC previsto</dt><dd>5069-L320ER</dd><dt>Protocolo</dt><dd>EtherNet/IP vía gateway</dd></dl>
+      <div class="tag-matrix">${Object.entries(engineeringSignalNames).map(([tag, label]) => `<span><code>${tag}</code><small>${label}</small></span>`).join("")}</div>`;
+  }
 }
 
 function renderEvents() {
@@ -234,25 +405,6 @@ function editRecipe(name) {
   recipe.mashTemp = number;
   safeStore("dagoca-recipes", JSON.stringify(demoConfig.recipes));
   renderRecipes(); toast(`Parámetro de simulación de ${name} actualizado.`);
-}
-
-function renderGrafcet() {
-  const ranges = { "0.10": [0, 5], "0.20": [6, 8], "0.30": [9, 11] };
-  $("#grafcet-board").innerHTML = grafcetBlueprint.map(block => {
-    const [start, end] = ranges[block.group];
-    const groupActive = simulator.activeStage >= start && simulator.activeStage <= end;
-    const groupComplete = simulator.activeStage > end;
-    const progress = groupActive ? (simulator.activeStage - start + Math.min(1, simulator.stageProgress / demoConfig.simulation.secondsPerStage)) / (end - start + 1) : groupComplete ? 1 : 0;
-    const activeIndex = groupActive ? Math.min(block.steps.length - 1, Math.floor(progress * block.steps.length)) : -1;
-    return `<div class="grafcet-column"><h3>GRAFCET ${block.group} · ${block.title}</h3>${block.steps.map((name, index) => {
-      const complete = groupComplete || (groupActive && index < activeIndex);
-      const active = groupActive && index === activeIndex;
-      const status = complete ? "complete" : active ? "active" : "pending";
-      const transitionClass = complete ? "satisfied" : active && simulator.emergency ? "blocked" : active ? "pending" : "pending";
-      const text = complete ? "Condiciones cumplidas" : active ? `${simulator.blockReason()} · T ${formatTime(simulator.stageProgress, true)}` : "Etapa futura";
-      return `<article class="grafcet-step ${status} ${simulator.emergency && active ? "blocked" : ""}"><header><strong>${block.group}.${String(index + 1).padStart(2, "0")}</strong><span class="badge">${status.toUpperCase()}</span></header><p>${name}</p><div class="transition ${transitionClass}"><span>${complete ? "✓" : active ? "◷" : "—"}</span><span>${text}</span></div></article>`;
-    }).join("")}</div>`;
-  }).join("");
 }
 
 function renderAlarmSummary() {
@@ -308,7 +460,7 @@ function updateAlarmEquipmentFilter() {
 }
 
 function renderCipTargets() {
-  const targets = [...simulator.equipment.values()].filter(item => ["tank", "filter"].includes(item.type) && item.tag !== "T1");
+  const targets = [...simulator.equipment.values()].filter(item => ["tank", "filter"].includes(item.type) && item.tag !== "TK-001");
   $("#cip-targets").innerHTML = targets.map(item => `<button class="cip-target ${selectedCip.has(item.tag) ? "selected" : ""}" data-cip="${item.tag}" ${cipRunning ? "disabled" : ""}><strong>${item.tag}</strong><small>${item.clean ? "Limpio" : "Sucio"}</small></button>`).join("");
   $$("[data-cip]").forEach(button => button.addEventListener("click", () => {
     selectedCip.has(button.dataset.cip) ? selectedCip.delete(button.dataset.cip) : selectedCip.add(button.dataset.cip);
@@ -372,7 +524,6 @@ function renderMaintenance() {
 function applyAccessControl() {
   const simulationAccess = simulator.mode === "simulation" && hasPermission(role, "forceSignal");
   $("#demo-alarm-btn").hidden = !simulationAccess;
-  $("#advance-btn").disabled = !hasPermission(role, "authorizeTransition");
   $("#cip-config").querySelectorAll("input").forEach(input => input.disabled = !hasPermission(role, "editCip"));
   $("#settings-form").querySelectorAll("input:not([name=username]), button").forEach(control => control.disabled = !hasPermission(role, "configureEquipment"));
   $("#reset-simulation-btn").disabled = !hasPermission(role, "resetSimulation");
@@ -398,7 +549,7 @@ function openEquipment(tag) {
   <div class="detail-grid">${variables.map(([label, value, unit]) => detailValue(label, `${value} ${unit}`)).join("")}${activeBatch ? detailValue("Tiempo en etapa", formatTime(simulator.stageProgress)) : ""}${detailValue("Último mantenimiento", equipment.lastMaintenance)}</div>
   <h3>Instrumentación asociada</h3><div class="instrument-list">${equipment.instruments.length ? equipment.instruments.map(sensor => `<p><code>${sensor.tag}</code><span>${sensor.variable} · ${sensor.status}</span>${qualityLabel(sensor.quality)}</p>`).join("") : `<p><span>INSTRUMENTO PENDIENTE DE SELECCIÓN</span>${qualityLabel()}</p>`}</div>
   <h3>Alarmas relacionadas</h3><div>${related.length ? related.map(a => `<p class="engineering-note">${a.tag} · ${a.description}</p>`).join("") : '<p style="color:var(--muted);font-size:10px">Sin alarmas relacionadas.</p>'}</div>
-  <h3>Actuadores asociados</h3><p style="color:var(--muted);font-size:10px">Válvulas: V2 · XV-003 · XV-004 · XV-006<br>Bombas: B1 · B2 · B3 · Agitador: AG1</p>
+  <h3>Actuadores asociados</h3><p style="color:var(--muted);font-size:10px">Válvulas: LV-100 · LV-104 · TV-105 · TV-107 · TV-109 · LV-108<br>Bombas: P-001 · P-002 · P-003 · Agitador: AG1</p>
   <h3>Comandos manuales</h3><div class="drawer-actions">
     <button class="btn" data-manual-command="valve" data-target="${equipment.tag}" ${!["manual", "simulation"].includes(simulator.mode) || simulator.emergency ? "disabled" : ""}>Conmutar válvula</button>
     <button class="btn" data-manual-command="pump" data-target="${equipment.tag}" ${!["manual", "simulation"].includes(simulator.mode) || simulator.emergency || !equipment.clean ? "disabled" : ""}>Conmutar bomba</button>
@@ -418,6 +569,20 @@ function interlockReject(reason, equipment, action) {
   return false;
 }
 
+const manualAssociations = Object.freeze({
+  "TK-001": { valve: "LV-100" },
+  "TK-002": { pump: "P-001", valve: "LV-100" },
+  "TK-003": { pump: "P-001", valve: "TV-105" },
+  "TK-004": { pump: "P-002", valve: "LV-104" },
+  "TK-005": { pump: "P-003", valve: "TV-107" },
+  "E-001": { pump: "P-003", valve: "TV-109" },
+  "TK-006A": { valve: "LV-111" },
+  "TK-006B": { valve: "LV-111" },
+  "TK-007": { valve: "LV-125" },
+  "TK-008A": { valve: "TV-113" }, "TK-008B": { valve: "TV-116" },
+  "TK-008C": { valve: "TV-119" }, "TK-008D": { valve: "TV-122" }
+});
+
 function manualCommand(command, sourceTag) {
   if (!["manual", "simulation"].includes(simulator.mode)) return toast("Seleccione modo Manual o Simulación para operar actuadores.", "error");
   if (!requirePermission(role, "manualOperation", toast)) return;
@@ -427,15 +592,18 @@ function manualCommand(command, sourceTag) {
   if (!source.clean || source.status === "En limpieza") return interlockReject("Equipo o línea en CIP", source.tag, "Finalizar y drenar la ruta CIP");
   if (!confirm(`Confirmar comando ${command === "valve" ? "de válvula" : "de bomba"} asociado a ${source.tag}. Los interlocks permanecerán activos.`)) return;
   if (command === "valve") {
-    const valve = source.type === "valve" ? source : [...simulator.equipment.values()].find(item => item.type === "valve");
-    if (valve.tag === "XV-004" && ["T3", "T5"].includes(source.tag) && source.level < 15) return interlockReject("Nivel insuficiente para habilitar calentamiento", source.tag, "Alcanzar el nivel mínimo");
+    const valve = source.type === "valve" ? source : simulator.equipment.get(manualAssociations[source.tag]?.valve);
+    if (!valve) return interlockReject("No existe una válvula operable asociada", source.tag, "Verificar la narrativa de control");
+    if (["TV-105", "TV-107"].includes(valve.tag) && ["TK-003", "TK-005"].includes(source.tag) && source.level < 15) return interlockReject("Nivel insuficiente para habilitar vapor", source.tag, "Alcanzar el nivel mínimo");
     valve.position = valve.position === "Abierta" ? "Cerrada" : "Abierta";
     valve.status = valve.position === "Abierta" ? "Operando" : "Disponible";
     simulator.log(`${valve.tag} ${valve.position.toLowerCase()} por comando manual desde ${source.tag}`);
     toast(`${valve.tag}: ${valve.position}.`);
   } else {
-    const pump = source.type === "pump" ? source : [...simulator.equipment.values()].find(item => item.type === "pump");
-    if (pump.tag === "B1" && simulator.equipment.get("T2").level <= 5) return interlockReject("T2 sin nivel de succión", "B1 / T2", "Llenar T2 y confirmar válvula de succión");
+    const pump = source.type === "pump" ? source : simulator.equipment.get(manualAssociations[source.tag]?.pump);
+    if (!pump) return interlockReject("No existe una bomba operable asociada", source.tag, "Verificar la narrativa de control");
+    if (pump.tag === "P-001" && simulator.equipment.get("TK-002").level <= 5) return interlockReject("TK-002 sin nivel de succión", "P-001 / TK-002", "Llenar TK-002 y confirmar válvula de succión");
+    if (pump.tag === "P-003" && simulator.equipment.get("E-001").temperature >= 35) return interlockReject("Mosto demasiado caliente para fermentación", "E-001 / P-003", "Reducir TT-109 por debajo de 35 °C");
     pump.status = pump.status === "Operando" ? "Detenida" : "Operando";
     if (pump.status === "Operando") pump.starts++;
     simulator.log(`${pump.tag} ${pump.status.toLowerCase()} por comando manual desde ${source.tag}`);
@@ -484,12 +652,12 @@ function renderTrendSummary() {
 }
 
 function renderAll() {
-  renderHome(); renderMetrics(); renderMimic(); renderMiniGrafcet(); renderEvents(); renderBatches(); renderRecipes(); renderGrafcet();
+  renderHome(); renderMetrics(); renderMimic(); renderStageScreens(); renderEvents(); renderBatches(); renderRecipes();
   renderAlarmSummary(); updateAlarmEquipmentFilter(); renderAlarmTable(); renderCipTargets(); renderMaintenance(); updateStatus(); applyAccessControl();
 }
 
 function switchView(view, updateHash = true) {
-  if (!$(`#view-${view}`)) view = "overview";
+  if (!$(`#view-${view}`)) view = "home";
   $$(".view").forEach(section => section.classList.toggle("active", section.id === `view-${view}`));
   $$(".nav-item").forEach(button => {
     const active = button.dataset.view === view;
@@ -523,21 +691,6 @@ function initControls() {
     simulator.emergency ? simulator.resetEmergency() : toast("Reset ejecutado: no había fallos enclavados.");
   });
   $("#emergency-btn").addEventListener("click", () => { if (confirm("CONFIRMAR PARADA DE EMERGENCIA. Se detendrán bombas y agitadores, y se cerrarán actuadores críticos.")) simulator.triggerEmergency(); });
-  $("#advance-btn").addEventListener("click", () => { if (requirePermission(role, "authorizeTransition", toast)) simulator.advance(); });
-  $("#step-mode").addEventListener("change", event => { simulator.stepMode = event.target.checked; simulator.emitState(); });
-  $("#grafcet-pause").addEventListener("click", () => simulator.stop());
-  $("#grafcet-resume").addEventListener("click", () => simulator.start());
-  $("#speed-btn").addEventListener("click", event => {
-    if (!requirePermission(role, "editSimulation", toast)) return;
-    const accelerated = demoConfig.simulation.tickMs === 330;
-    demoConfig.simulation.tickMs = accelerated ? 1000 : 330;
-    if (simulator.interval) { clearInterval(simulator.interval); simulator.interval = null; simulator.startTimer(); }
-    event.currentTarget.textContent = accelerated ? "Acelerar ×3" : "Velocidad normal";
-    toast(accelerated ? "Velocidad normal restaurada." : "Simulación acelerada ×3.");
-  });
-  $("#grafcet-reset").addEventListener("click", () => {
-    if (requirePermission(role, "resetSequence", toast) && confirm("¿Reiniciar la secuencia activa desde limpieza inicial?")) simulator.resetSequence();
-  });
   $("#new-batch-btn").addEventListener("click", () => { populateBatchForm(); $("#batch-dialog").showModal(); });
   $("#batch-form").addEventListener("submit", submitBatch);
   $("#role-select").value = role;
@@ -639,6 +792,7 @@ function init() {
   $("#settings-form [name=maturationTanks]").value = settings.maturationTanks || demoConfig.plant.maturationTanks;
   $("#settings-form [name=stageSeconds]").value = settings.stageSeconds || demoConfig.simulation.secondsPerStage;
   $$(".mode-switch button").forEach(button => button.classList.toggle("active", button.dataset.mode === simulator.mode));
+  dataProvider.connect().catch(() => toast("No fue posible iniciar el proveedor de simulación.", "error"));
   initNavigation(); initControls(); initTrends(); initBus(); renderCipSteps(); renderAll();
   $("#clock").textContent = new Date().toLocaleTimeString("es-CO");
   setInterval(() => $("#clock").textContent = new Date().toLocaleTimeString("es-CO"), 1000);

@@ -96,12 +96,19 @@ class TrendManager {
   readSimulatorValue(tag) {
     const s = this.simulator.equipment;
     const map = {
-      "TT-T3": s.get("T3")?.temperature, "AIT-pH-T3": s.get("T3")?.ph, "TT-T5": s.get("T5")?.temperature,
-      "TT-IC1": s.get("IC1")?.temperature, "TT-TF": s.get(this.simulator.activeBatch?.fermenter)?.temperature,
-      "PT-TF": s.get(this.simulator.activeBatch?.fermenter)?.pressure, "AIT-SG-TF": s.get(this.simulator.activeBatch?.fermenter)?.density,
-      "TT-TM": s.get(this.simulator.activeBatch?.maturation)?.temperature, "PT-TM": s.get(this.simulator.activeBatch?.maturation)?.pressure,
-      "AIT-TU-T7": s.get("T7")?.turbidity, "PDT-T7": s.get("T7")?.differentialPressure,
-      "AIT-TU-TM": s.get(this.simulator.activeBatch?.maturation)?.turbidity
+      "TT-105": s.get("TK-003")?.temperature,
+      "AIT-105": s.get("TK-003")?.ph,
+      "TT-107": s.get("TK-005")?.temperature,
+      "TT-109": s.get("E-001")?.temperature,
+      "TT-111": s.get(this.simulator.activeBatch?.fermenter)?.temperature,
+      "PT-111": s.get(this.simulator.activeBatch?.fermenter)?.pressure,
+      "AIT-111": s.get(this.simulator.activeBatch?.fermenter)?.density,
+      "TT-113": s.get("TK-008A")?.temperature,
+      "TT-116": s.get("TK-008B")?.temperature,
+      "TT-119": s.get("TK-008C")?.temperature,
+      "TT-122": s.get("TK-008D")?.temperature,
+      "AIT-125": s.get("TK-007")?.turbidity,
+      "PDT-125": s.get("TK-007")?.differentialPressure
     };
     return Number.isFinite(map[tag]) ? map[tag] : null;
   }

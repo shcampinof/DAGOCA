@@ -11,10 +11,11 @@
   <script src="./js/state.js" defer></script>
   <script src="./js/permissions.js" defer></script>
   <script src="./js/recipes.js" defer></script>
+  <script src="./js/sequence.js" defer></script>
   <script src="./js/process.js" defer></script>
+  <script src="./js/data-provider.js" defer></script>
   <script src="./js/alarms.js" defer></script>
   <script src="./js/history.js" defer></script>
-  <script src="./js/grafcet.js" defer></script>
   <script src="./js/batches.js" defer></script>
   <script src="./js/cip.js" defer></script>
   <script src="./js/ui.js" defer></script>
@@ -32,17 +33,21 @@
         </div>
       </div>
       <nav>
-        <button class="nav-item active" data-view="home" aria-current="page"><span>IN</span>Vista general</button>
-        <button class="nav-item" data-view="process"><span>PR</span>Proceso</button>
-        <button class="nav-item" data-view="grafcet"><span>GF</span>GRAFCET</button>
+        <button class="nav-item active" data-view="home" aria-current="page"><span>VG</span>Vista general</button>
+        <button class="nav-item" data-view="water"><span>AG</span>Agua</button>
+        <button class="nav-item" data-view="mashing"><span>MC</span>Maceración</button>
+        <button class="nav-item" data-view="filter1"><span>F1</span>Filtrado I</button>
+        <button class="nav-item" data-view="boiling"><span>CC</span>Cocción</button>
+        <button class="nav-item" data-view="cooling"><span>EN</span>Enfriamiento</button>
+        <button class="nav-item" data-view="fermentation"><span>FE</span>Fermentación</button>
+        <button class="nav-item" data-view="filter2"><span>F2</span>Filtrado II</button>
+        <button class="nav-item" data-view="maturation"><span>MD</span>Maduración</button>
+        <button class="nav-item" data-view="cip"><span>CP</span>CIP y limpieza</button>
         <button class="nav-item" data-view="batches"><span>LT</span>Lotes</button>
-        <button class="nav-item" data-view="recipes"><span>RC</span>Recetas</button>
-        <button class="nav-item" data-view="trends"><span>TR</span>Tendencias</button>
+        <button class="nav-item" data-view="trends"><span>HI</span>Históricos</button>
         <button class="nav-item" data-view="alarms"><span>AL</span>Alarmas <b id="alarm-count">0</b></button>
-        <button class="nav-item" data-view="cip"><span>CP</span>Limpieza CIP</button>
         <button class="nav-item" data-view="maintenance"><span>MT</span>Mantenimiento</button>
         <button class="nav-item" data-view="settings"><span>CF</span>Configuración</button>
-        <button class="nav-item" data-view="about"><span>AC</span>Acerca del sistema</button>
       </nav>
     </aside>
 
@@ -60,7 +65,7 @@
             <button data-mode="maintenance">Mantenimiento</button>
             <button data-mode="simulation">Simulación</button>
           </div>
-          <span class="simulation-badge" id="simulation-badge">SIMULATED</span>
+          <span class="simulation-badge" id="simulation-badge">SIMULACIÓN</span>
           <span class="user-chip" id="user-label">Operador 01</span>
           <button class="top-alarm-chip" data-go="alarms" aria-label="Ver alarmas"><span id="top-alarm-count">0</span> alarmas</button>
           <label class="select-label"><span>Rol</span>
@@ -88,18 +93,18 @@
       <main id="main-content" tabindex="-1">
         <section class="view active" id="view-home" data-title="Vista general">
           <div class="home-hero panel">
-            <div><p class="eyebrow">DAGOCA · PLANTA 01</p><h2>Sistema SCADA de Cervecería Artesanal</h2><p>Supervisión de proceso, lotes, secuencias, alarmas y limpieza.</p></div>
-            <button class="btn primary" data-go="process">Ir al proceso →</button>
+            <div><p class="eyebrow">RESUMEN DE OPERACIÓN</p><h2>Planta de elaboración</h2><p>Estado de equipos, rutas de producto y condición pendiente de cada etapa.</p></div>
+            <button class="btn primary" data-go="water">Abrir primera etapa →</button>
           </div>
           <div class="metrics home-metrics" id="home-metrics"></div>
           <div class="dashboard-grid">
             <article class="panel"><div class="panel-heading"><div><p class="eyebrow">PRODUCCIÓN</p><h2>Estado operativo</h2></div></div><div id="home-status"></div></article>
             <article class="panel"><div class="panel-heading"><div><p class="eyebrow">ACTIVIDAD</p><h2>Últimos eventos</h2></div></div><ol class="event-list" id="home-events"></ol></article>
           </div>
-          <p class="academic-note">Prototipo académico. Variables y parámetros de ingeniería pendientes de validación.</p>
+          <div class="stage-overview" id="stage-overview"></div>
         </section>
 
-        <section class="view" id="view-process" data-title="Proceso">
+        <section class="view" id="view-process" data-title="Distribución general de planta">
           <div class="metrics" id="overview-metrics"></div>
           <div class="panel plant-panel">
             <div class="panel-heading">
@@ -128,16 +133,22 @@
             </div>
           </div>
           <div class="dashboard-grid">
-            <article class="panel">
-              <div class="panel-heading"><div><p class="eyebrow">SECUENCIA</p><h2>GRAFCET activo</h2></div><button class="text-button" data-go="grafcet">Ver detalle →</button></div>
-              <div id="mini-grafcet"></div>
-            </article>
+            <article class="panel stage-state-panel" id="overview-stage-state"></article>
             <article class="panel">
               <div class="panel-heading"><div><p class="eyebrow">EVENTOS</p><h2>Actividad reciente</h2></div></div>
               <ol class="event-list" id="event-list"></ol>
             </article>
           </div>
         </section>
+
+        <section class="view stage-view" id="view-water" data-title="Filtrado y almacenamiento de agua"><div id="stage-water"></div></section>
+        <section class="view stage-view" id="view-mashing" data-title="Maceración"><div id="stage-mashing"></div></section>
+        <section class="view stage-view" id="view-filter1" data-title="Filtrado I"><div id="stage-filter1"></div></section>
+        <section class="view stage-view" id="view-boiling" data-title="Cocción"><div id="stage-boiling"></div></section>
+        <section class="view stage-view" id="view-cooling" data-title="Enfriamiento"><div id="stage-cooling"></div></section>
+        <section class="view stage-view" id="view-fermentation" data-title="Fermentación"><div id="stage-fermentation"></div></section>
+        <section class="view stage-view" id="view-filter2" data-title="Filtrado II"><div id="stage-filter2"></div></section>
+        <section class="view stage-view" id="view-maturation" data-title="Maduración"><div id="stage-maturation"></div></section>
 
         <section class="view" id="view-batches" data-title="Lotes">
           <div class="batches-layout">
@@ -159,24 +170,6 @@
           </div>
         </section>
 
-        <section class="view" id="view-grafcet" data-title="GRAFCET">
-          <div class="panel">
-            <div class="panel-heading">
-              <div><p class="eyebrow">CONTROL SECUENCIAL</p><h2>Subprocesos coordinados</h2></div>
-              <div class="step-controls">
-                <label><input type="checkbox" id="step-mode"> Paso a paso</label>
-                <button class="btn" id="grafcet-pause">Pausar</button>
-                <button class="btn" id="grafcet-resume">Reanudar</button>
-                <button class="btn" id="speed-btn">Acelerar ×3</button>
-                <button class="btn" id="grafcet-reset">Reiniciar</button>
-                <button class="btn primary" id="advance-btn">Autorizar transición</button>
-              </div>
-            </div>
-            <p class="info-banner">La secuencia combina condiciones de proceso y tiempo mínimo. Ninguna transición de fermentación o maduración depende únicamente de un temporizador.</p>
-            <div class="grafcet-board" id="grafcet-board"></div>
-          </div>
-        </section>
-
         <section class="view" id="view-trends" data-title="Tendencias e históricos">
           <div class="panel trend-panel">
             <div class="panel-heading"><div><p class="eyebrow">HISTÓRICOS</p><h2>Variables de proceso</h2></div><div class="trend-actions"><button class="btn" id="pause-chart">Ⅱ Pausar</button><button class="btn" id="export-csv">⇩ Exportar CSV</button></div></div>
@@ -193,7 +186,7 @@
         <section class="view" id="view-alarms" data-title="Alarmas">
           <div class="alarm-cards" id="alarm-summary"></div>
           <div class="panel">
-            <div class="panel-heading"><div><p class="eyebrow">GESTIÓN DE EVENTOS</p><h2>Alarmas activas e históricas</h2></div><button class="btn" id="demo-alarm-btn">＋ Generar alarma</button></div>
+            <div class="panel-heading"><div><p class="eyebrow">GESTIÓN DE EVENTOS</p><h2>Alarmas activas e históricas</h2></div><button class="btn" id="demo-alarm-btn">＋ Simular alarma</button></div>
             <div class="filters">
               <label>Prioridad<select id="alarm-priority"><option value="">Todas</option><option>Crítica</option><option>Alta</option><option>Media</option><option>Baja</option><option>Informativa</option></select></label>
               <label>Equipo<select id="alarm-equipment"><option value="">Todos</option></select></label>
@@ -244,12 +237,13 @@
             <article class="panel"><div class="panel-heading"><div><p class="eyebrow">SESIÓN</p><h2>Usuario y simulación</h2></div></div>
               <form id="settings-form" class="form-stack">
                 <label>Usuario actual<input name="username" value="Operador 01"></label>
-                <label>Cantidad de fermentadores<input name="fermenters" type="number" min="1" max="10" value="5"></label>
-                <label>Tanques de maduración<input name="maturationTanks" type="number" min="1" max="10" value="5"></label>
+                <label>Cantidad de fermentadores<input name="fermenters" type="number" min="2" max="2" value="2"></label>
+                <label>Tanques de maduración<input name="maturationTanks" type="number" min="4" max="4" value="4"></label>
                 <label>Duración de etapa (s)<input name="stageSeconds" type="number" min="3" max="60" value="9"></label>
                 <button class="btn primary" type="submit">Guardar configuración</button>
               </form>
             </article>
+            <article class="panel engineering-diagnostics" id="engineering-diagnostics" hidden></article>
             <article class="panel danger-panel"><div class="panel-heading"><div><p class="eyebrow">DATOS LOCALES</p><h2>Restablecer simulación</h2></div></div><p>Elimina lotes, alarmas, eventos, recetas y configuración guardada.</p><button class="btn" id="reset-simulation-btn">Restablecer simulación</button></article>
           </div>
         </section>

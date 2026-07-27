@@ -4,6 +4,11 @@ const cipPhases = Object.freeze([
 ]);
 
 const cipRouteLabels = Object.freeze({
-  "T1-T2": ["T1", "T2"], T3: ["T3"], T4: ["T4"], T5: ["T5"], IC1: ["IC1"],
-  T7: ["T7"], "Línea de embotellado": ["EMB-01"]
+  "TK-001 / TK-002": ["TK-001", "TK-002"],
+  "TK-003": ["TK-003"],
+  "TK-004": ["TK-004"],
+  "TK-005": ["TK-005"],
+  "E-001": ["E-001"],
+  "TK-007": ["TK-007"],
+  "Línea de embotellado": ["EMB-01"]
 });
