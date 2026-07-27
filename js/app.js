@@ -60,17 +60,23 @@ function classicUnit(equipment, options = {}) {
   const displayTag = equipment.displayTag || equipment.tag;
   return `<button class="classic-unit ${compact ? "compact" : ""} ${shape} ${equipmentStatusClass(equipment)}" data-equipment="${equipment.tag}" aria-label="${displayTag}, ${equipment.name}, ${equipment.status}">
     <span class="unit-title">${equipment.name}</span>
-    <span class="vessel-wrap">
+    ${shape === "cooler" ? `<span class="vessel-wrap exchanger-wrap" aria-hidden="true">
+      <svg class="heat-exchanger-symbol" viewBox="0 0 140 92" focusable="false">
+        <path class="exchanger-nozzle" d="M0 46H17M123 46H140M70 0V15M70 77V92"></path>
+        <path class="exchanger-shell" d="M17 13H123L137 46L123 79H17L3 46Z"></path>
+        <circle class="exchanger-core" cx="70" cy="46" r="31"></circle>
+        <path class="exchanger-element" d="M83 27H69L54 46L69 65H83"></path>
+      </svg>
+    </span>` : `<span class="vessel-wrap">
       <span class="vessel-top"></span>
       <span class="vessel-body">
         <i class="liquid ${process.toLowerCase()}" style="height:${equipment.level}%"></i>
         ${equipment.tag === "TK-003" ? '<i class="agitator">↻</i>' : ""}
         ${shape === "filter" ? '<i class="filter-plates"></i>' : ""}
-        ${shape === "cooler" ? '<i class="cooler-coil">〰</i>' : ""}
       </span>
       <span class="vessel-cone"></span><span class="leg left"></span><span class="leg right"></span>
-    </span>
-    ${showGauge ? `<span class="classic-gauge"><i style="height:${equipment.level}%"></i><b>100</b><b>50</b><b>0</b></span>` : ""}
+    </span>`}
+    ${showGauge && shape !== "cooler" ? `<span class="classic-gauge"><i style="height:${equipment.level}%"></i><b>100</b><b>50</b><b>0</b></span>` : ""}
     <span class="unit-tag">${displayTag}</span>
     <span class="unit-readings"><b>${equipment.temperature?.toFixed?.(1) ?? equipment.temperature} °C</b><small>${secondary}</small></span>
     <span class="classic-status ${statusClass}"><i></i>${status}</span>

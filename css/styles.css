@@ -471,9 +471,10 @@ dialog form { padding: 20px; }
   color: #111;
   cursor: pointer;
 }
-.classic-unit:hover .vessel-body, .classic-unit:focus-visible .vessel-body { filter: brightness(1.18); }
-.classic-unit.active .vessel-body { outline: 3px solid #13d853; outline-offset: 2px; }
-.classic-unit.alarm .vessel-body { outline: 4px solid #e31322; animation: alarm-flash .65s infinite; }
+.classic-unit:hover .vessel-body, .classic-unit:focus-visible .vessel-body,
+.classic-unit:hover .exchanger-shell, .classic-unit:focus-visible .exchanger-shell { filter: brightness(1.18); }
+.classic-unit.active .vessel-body, .classic-unit.active .exchanger-shell { outline: 3px solid #13d853; outline-offset: 2px; }
+.classic-unit.alarm .vessel-body, .classic-unit.alarm .exchanger-shell { outline: 4px solid #e31322; animation: alarm-flash .65s infinite; }
 .unit-title {
   position: absolute;
   top: 0;
@@ -629,7 +630,21 @@ dialog form { padding: 20px; }
 }
 .agitator { position: absolute; z-index: 3; top: 20px; left: 17px; width: 26px; height: 26px; border: 3px double #505050; border-radius: 50%; background: rgb(210 210 210 / 75%); color: #424242; font-style: normal; font-size: 18px; line-height: 20px; }
 .filter-plates { position: absolute; z-index: 3; inset: 6px; background: repeating-linear-gradient(90deg, #333 0 2px, transparent 2px 7px); opacity: .65; }
-.cooler-coil { position: absolute; z-index: 3; top: 14px; left: 5px; color: #00749f; font-style: normal; font-size: 42px; font-weight: 700; transform: rotate(90deg); }
+.exchanger-wrap { top: 45px; width: 140px; height: 92px; }
+.heat-exchanger-symbol { width: 140px; height: 92px; overflow: visible; }
+.heat-exchanger-symbol path, .heat-exchanger-symbol circle {
+  vector-effect: non-scaling-stroke;
+  stroke: #3f4b50;
+  stroke-width: 2;
+  fill: none;
+}
+.heat-exchanger-symbol .exchanger-shell {
+  fill: #c7cdcf;
+  filter: drop-shadow(2px 2px 2px rgb(0 0 0 / 35%));
+}
+.heat-exchanger-symbol .exchanger-core { fill: #eef2f3; }
+.heat-exchanger-symbol .exchanger-element { stroke: #087c99; stroke-width: 4; stroke-linejoin: miter; }
+.heat-exchanger-symbol .exchanger-nozzle { stroke-width: 3; }
 .classic-gauge {
   position: absolute;
   z-index: 4;
@@ -689,9 +704,7 @@ dialog form { padding: 20px; }
 .classic-status.fault i { background: #ff151f; box-shadow: 0 0 5px red; }
 .classic-unit.filter .vessel-top { border-radius: 4px 4px 0 0; }
 .classic-unit.filter .vessel-cone { clip-path: none; height: 10px; }
-.classic-unit.cooler .vessel-top { display: none; }
-.classic-unit.cooler .vessel-body { top: 5px; height: 104px; border-radius: 4px; }
-.classic-unit.cooler .vessel-cone { display: none; }
+.classic-unit.cooler .unit-tag { top: 151px; }
 .valve-row { position: absolute; z-index: 5; top: 167px; left: 183px; right: 315px; display: flex; justify-content: space-around; pointer-events: none; }
 .inline-actuator { position: absolute; z-index: 7; width: 34px; height: 34px; display: grid; place-items: center; border: 2px solid #606b70; border-radius: 50%; background: #e8ecee; color: #273942; cursor: pointer; }
 .inline-actuator i { font-style: normal; font-size: 11px; }.inline-actuator b { position: absolute; top: 35px; font-size: 7px; }
