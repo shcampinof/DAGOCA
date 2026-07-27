@@ -94,15 +94,15 @@
       <main id="main-content" tabindex="-1">
         <section class="view active" id="view-home" data-title="Vista general">
           <div class="home-hero panel">
-            <div><p class="eyebrow">RESUMEN DE OPERACIÓN</p><h2>Planta de elaboración</h2><p>Estado de equipos, rutas de producto y condición pendiente de cada etapa.</p></div>
-            <button class="btn primary" data-go="water">Abrir primera etapa →</button>
+            <div><p class="eyebrow">RESUMEN DE OPERACIÓN</p><h2>Planta de elaboración</h2><p>Estado ejecutivo y recorrido operacional desde agua hasta embotellado.</p></div>
+            <button class="btn primary" data-go="process">Abrir vista de planta detallada →</button>
           </div>
           <div class="metrics home-metrics" id="home-metrics"></div>
-          <div class="dashboard-grid">
-            <article class="panel"><div class="panel-heading"><div><p class="eyebrow">PRODUCCIÓN</p><h2>Estado operativo</h2></div></div><div id="home-status"></div></article>
+          <div class="stage-overview" id="stage-overview"></div>
+          <div class="home-operations-grid">
+            <article class="panel"><div class="panel-heading"><div><p class="eyebrow">RESUMEN OPERACIONAL</p><h2>Disponibilidad y próximos movimientos</h2></div></div><div id="home-operations"></div></article>
             <article class="panel"><div class="panel-heading"><div><p class="eyebrow">ACTIVIDAD</p><h2>Últimos eventos</h2></div></div><ol class="event-list" id="home-events"></ol></article>
           </div>
-          <div class="stage-overview" id="stage-overview"></div>
         </section>
 
         <section class="view" id="view-process" data-title="Distribución general de planta">
