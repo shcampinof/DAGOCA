@@ -5,21 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Sistema SCADA de supervisión para una cervecería artesanal DAGOCA.">
   <title>DAGOCA · Sistema SCADA</title>
-  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./css/styles.css">
-  <script src="./vendor/chart.umd.min.js" defer></script>
-  <script src="./js/state.js" defer></script>
-  <script src="./js/permissions.js" defer></script>
-  <script src="./js/recipes.js" defer></script>
-  <script src="./js/sequence.js" defer></script>
-  <script src="./js/process.js" defer></script>
-  <script src="./js/data-provider.js" defer></script>
-  <script src="./js/alarms.js" defer></script>
-  <script src="./js/history.js" defer></script>
-  <script src="./js/batches.js" defer></script>
-  <script src="./js/cip.js" defer></script>
-  <script src="./js/ui.js" defer></script>
-  <script src="./js/app.js" defer></script>
+  <link rel="icon" href="assets/favicon.svg?v=1.3.0" type="image/svg+xml">
+  <link rel="stylesheet" href="./css/styles.css?v=1.3.0">
+  <script src="./vendor/chart.umd.min.js?v=1.3.0" defer></script>
+  <script src="./js/state.js?v=1.3.0" defer></script>
+  <script src="./js/permissions.js?v=1.3.0" defer></script>
+  <script src="./js/recipes.js?v=1.3.0" defer></script>
+  <script src="./js/sequence.js?v=1.3.0" defer></script>
+  <script src="./js/process.js?v=1.3.0" defer></script>
+  <script src="./js/data-provider.js?v=1.3.0" defer></script>
+  <script src="./js/alarms.js?v=1.3.0" defer></script>
+  <script src="./js/history.js?v=1.3.0" defer></script>
+  <script src="./js/batches.js?v=1.3.0" defer></script>
+  <script src="./js/cip.js?v=1.3.0" defer></script>
+  <script src="./js/ui.js?v=1.3.0" defer></script>
+  <script src="./js/app.js?v=1.3.0" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main-content">Saltar al contenido</a>
@@ -45,10 +45,12 @@
         <button class="nav-item" data-view="packaging"><span>EM</span>Embotellado</button>
         <button class="nav-item" data-view="cip"><span>CP</span>CIP y limpieza</button>
         <button class="nav-item" data-view="batches"><span>LT</span>Lotes</button>
+        <button class="nav-item" data-view="recipes"><span>RC</span>Recetas</button>
         <button class="nav-item" data-view="trends"><span>HI</span>Históricos</button>
         <button class="nav-item" data-view="alarms"><span>AL</span>Alarmas <b id="alarm-count">0</b></button>
         <button class="nav-item" data-view="maintenance"><span>MT</span>Mantenimiento</button>
         <button class="nav-item" data-view="settings"><span>CF</span>Configuración</button>
+        <button class="nav-item" data-view="about"><span>AC</span>Acerca del sistema</button>
       </nav>
     </aside>
 
@@ -252,7 +254,7 @@
         </section>
 
         <section class="view" id="view-about" data-title="Acerca del sistema">
-          <article class="panel about-panel"><p class="eyebrow">DAGOCA</p><h2>Sistema de Supervisión y Control de Cervecería Artesanal</h2><p>Aplicación académica para representar la secuencia de fabricación, instrumentación, gestión de alarmas y trazabilidad de lotes.</p><dl><dt>Versión</dt><dd>1.2</dd><dt>Calidad de señales</dt><dd>SIMULATED</dd><dt>Conexión PLC</dt><dd>No configurada</dd><dt>Persistencia</dt><dd>localStorage · esquema v2</dd></dl><p class="engineering-note">No sustituye protecciones mecánicas, circuitos de seguridad ni validación de ingeniería.</p></article>
+          <article class="panel about-panel"><p class="eyebrow">DAGOCA</p><h2>Sistema de Supervisión y Control de Cervecería Artesanal</h2><p>Aplicación académica para representar la secuencia de fabricación, instrumentación, gestión de alarmas y trazabilidad de lotes.</p><dl><dt>Versión</dt><dd>1.3</dd><dt>Calidad de señales</dt><dd>SIMULATED</dd><dt>Conexión PLC</dt><dd>No configurada</dd><dt>Persistencia</dt><dd>localStorage · esquema v2</dd></dl><p class="engineering-note">No sustituye protecciones mecánicas, circuitos de seguridad ni validación de ingeniería.</p></article>
         </section>
       </main>
     </div>

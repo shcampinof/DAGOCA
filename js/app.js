@@ -9,12 +9,26 @@ let soundEnabled = localStorage.getItem("dagoca-sound") !== "false";
 let cipTimer = null;
 let cipRunning = false;
 let selectedCip = new Set();
+let equipmentFocusReturn = null;
 
 const stageEquipmentTags = ["CIP-01", "TK-001", "TK-003", "TK-004", "TK-005", "E-001", "FERMENTER", "MATURATION", "TK-007", "EMB-01"];
 const dataProvider = new SimulationDataProvider(simulator);
 
 function safeStore(key, value) {
   try { localStorage.setItem(key, value); } catch { toast("No fue posible guardar la preferencia local.", "error"); }
+}
+
+function operatorSequenceState() {
+  if (typeof getOperatorSequenceState === "function") return getOperatorSequenceState(simulator);
+  const step = simulator.currentStep();
+  return {
+    code: step?.code || "IDLE",
+    status: step?.name || "Planta disponible",
+    action: simulator.running ? "Secuencia en ejecución" : "Sin acción automática",
+    next: step ? "Completar condiciones de la etapa" : "Crear o seleccionar un lote",
+    fulfilled: [],
+    pending: simulator.relevantConditionKeys?.() || []
+  };
 }
 
 function formatTime(value, secondsOnly = false) {
@@ -181,7 +195,7 @@ function renderMetrics() {
 
 function renderHome() {
   const batch = simulator.activeBatch;
-  const activeAlarms = alarms.alarms.filter(a => !["CERRADA", "Normalizada"].includes(a.state)).length;
+  const activeAlarms = alarms.alarms.filter(a => a.state.startsWith("ACTIVA")).length;
   const stageDuration = demoConfig.simulation.secondsPerStage;
   const progress = batch ? Math.min(100, Math.round(simulator.stageProgress / stageDuration * 100)) : null;
   const remaining = batch ? Math.max(0, stageDuration - simulator.stageProgress) : null;
@@ -203,7 +217,7 @@ function renderHome() {
   const available = productionAssets.filter(item => item.available).length;
   const inCip = productionAssets.filter(item => item.status === "En limpieza" || item.cipStatus?.startsWith("CIP")).length;
   const inMaintenance = productionAssets.filter(item => item.maintenance).length;
-  const nextMovement = batch ? getOperatorSequenceState(simulator).next : "Crear y autorizar un lote";
+  const nextMovement = batch ? operatorSequenceState().next : "Crear y autorizar un lote";
   $("#home-operations").innerHTML = `
     <div class="operations-counts">
       <span><b>${occupied}</b> ocupados</span><span><b>${available}</b> disponibles</span>
@@ -264,7 +278,11 @@ const stageScreens = Object.freeze({
   maturation: {
     index: 7, title: "Maduración", short: "Maduración", media: "beer",
     tags: [...maturationTags], actuators: maturationTags.map(tankControlValve).filter(Boolean),
-    instruments: ["TT-113", "TC-113", "TT-116", "TC-116", "TT-119", "TC-119", "TT-122", "TC-122", ...maturationTags.flatMap(tankInstrumentTags)],
+    instruments: [
+      "TT-113", "TC-113", "PI-113", "TT-116", "TC-116", "PI-116",
+      "TT-119", "TC-119", "PI-119", "TT-122", "TC-122", "PI-122",
+      ...maturationTags.flatMap(tankInstrumentTags)
+    ],
     origin: () => simulator.activeBatch?.fermenter || "Fermentador seleccionado", destination: "TK-007", loop: "Control de enfriamiento por tanque", pv: "Temperatura por tanque", sp: "1–4 °C recomendado; validar receta",
     note: "Diez maduradores; solo enfriamiento con suministro y retorno al chiller."
   },
@@ -289,7 +307,11 @@ function stageText(value) {
 }
 
 function getStageAlarmCount(spec) {
-  return alarms.alarms.filter(alarm => alarm.state.startsWith("ACTIVA") && [...spec.tags, ...spec.actuators].some(tag => alarm.equipment === tag || alarm.tag.includes(tag.replace("TK-", "")))).length;
+  return alarms.alarms.filter(alarm => alarm.state.startsWith("ACTIVA") && (
+    alarm.equipment === spec.short ||
+    alarm.equipment === spec.title ||
+    [...spec.tags, ...spec.actuators].some(tag => alarm.equipment === tag || alarm.tag.includes(tag.replace("TK-", "")))
+  )).length;
 }
 
 function homeEquipmentState(items, active, alarmCount) {
@@ -417,7 +439,7 @@ function actuatorMarkup(tag, stageActive) {
 }
 
 function stageStateMarkup(spec) {
-  const sequence = getOperatorSequenceState(simulator);
+  const sequence = operatorSequenceState();
   const isActive = simulator.activeStage === spec.index;
   const progress = Math.min(100, Math.round(simulator.stageProgress / demoConfig.simulation.secondsPerStage * 100));
   const pendingText = isActive ? simulator.blockReason() : simulator.activeStage < spec.index ? "Esperando etapa anterior" : "Etapa completada";
@@ -442,6 +464,10 @@ function renderStageScreen(key, spec) {
   const pvIsStatus = key === "packaging";
   const pvValue = pvIsLevel ? equipment[0]?.level : pvIsStatus ? equipment[0]?.status : equipment[0]?.temperature?.toFixed?.(1);
   const pvUnit = pvIsLevel ? "%" : pvIsStatus ? "" : "°C";
+  const parallelBank = ["fermentation", "maturation"].includes(key);
+  const routeEquipment = parallelBank
+    ? `<div class="stage-parallel-bank" aria-label="${spec.short}: equipos en paralelo">${equipment.map(item => classicUnit(item, { compact: true, process: spec.media, showGauge: false })).join("")}</div>`
+    : equipment.map((item, index) => `${classicUnit(item, { compact: equipment.length > 2, shape: item.type === "filter" ? "filter" : item.type === "cooler" ? "cooler" : "tank", process: spec.media, showGauge: equipment.length <= 2 })}${index < equipment.length - 1 ? '<i class="route-line"></i>' : ""}`).join("");
   target.innerHTML = `
     <div class="stage-screen-head">
       <div><p class="eyebrow">ÁREA DE PROCESO · P&ID</p><h2>${spec.title}</h2><p>${stageText(spec.origin)} → ${stageText(spec.destination)}</p></div>
@@ -450,10 +476,10 @@ function renderStageScreen(key, spec) {
     <div class="stage-workspace">
       <article class="stage-mimic panel">
         <div class="mimic-title"><b>RUTA DE PROCESO</b><span>${spec.note}</span></div>
-        <div class="stage-route route-${spec.media} ${equipment.length > 5 ? "many" : ""} ${stageActive ? "active" : ""}">
+        <div class="stage-route route-${spec.media} ${parallelBank ? "parallel" : equipment.length > 5 ? "many" : ""} ${stageActive ? "active" : ""}">
           <span class="route-terminal">${stageText(spec.origin)}</span>
           <i class="route-line"></i>
-          ${equipment.map((item, index) => `${classicUnit(item, { compact: equipment.length > 2, shape: item.type === "filter" ? "filter" : item.type === "cooler" ? "cooler" : "tank", process: spec.media, showGauge: equipment.length <= 2 })}${index < equipment.length - 1 ? '<i class="route-line"></i>' : ""}`).join("")}
+          ${routeEquipment}
           <i class="route-line"></i>
           <span class="route-terminal">${stageText(spec.destination)}</span>
         </div>
@@ -503,10 +529,11 @@ function renderStageScreens() {
   const diagnostics = $("#engineering-diagnostics");
   diagnostics.hidden = role !== "Ingeniería";
   if (role === "Ingeniería") {
-    const sequence = getOperatorSequenceState(simulator);
+    const sequence = operatorSequenceState();
+    const signals = typeof engineeringSignalNames === "object" && engineeringSignalNames ? engineeringSignalNames : {};
     diagnostics.innerHTML = `<div class="panel-heading"><div><p class="eyebrow">DIAGNÓSTICO DE INGENIERÍA</p><h2>Secuencia y comunicaciones</h2></div></div>
       <dl class="status-list"><dt>SEQUENCE_STEP</dt><dd>${sequence.code}</dd><dt>Proveedor de datos</dt><dd>SimulationDataProvider</dd><dt>PLC previsto</dt><dd>5069-L320ER</dd><dt>Protocolo</dt><dd>EtherNet/IP vía gateway</dd></dl>
-      <div class="tag-matrix">${Object.entries(engineeringSignalNames).map(([tag, label]) => `<span><code>${tag}</code><small>${label}</small></span>`).join("")}</div>`;
+      <div class="tag-matrix">${Object.entries(signals).map(([tag, label]) => `<span><code>${tag}</code><small>${label}</small></span>`).join("")}</div>`;
   }
 }
 
@@ -552,7 +579,7 @@ function editRecipe(name) {
 
 function renderAlarmSummary() {
   const data = [
-    ["Críticas", alarms.alarms.filter(a => a.priority === "Crítica" && a.state !== "CERRADA").length, "#c23b45"],
+    ["Críticas", alarms.alarms.filter(a => a.priority === "Crítica" && a.state.startsWith("ACTIVA")).length, "#c23b45"],
     ["Activas", alarms.alarms.filter(a => a.state.startsWith("ACTIVA")).length, "#b6782e"],
     ["Reconocidas", alarms.alarms.filter(a => a.state === "ACTIVA RECONOCIDA").length, "#2e6f9e"],
     ["Cerradas", alarms.alarms.filter(a => a.state === "CERRADA").length, "#18795c"]
@@ -618,8 +645,15 @@ function renderCipSteps(active = -1) {
 function startCip() {
   if (cipRunning) return;
   if (!selectedCip.size) return toast("Seleccione al menos un equipo para limpiar.", "error");
-  const occupied = [...selectedCip].find(tag => simulator.equipment.get(tag)?.status === "Operando");
-  if (occupied) return toast(`Interlock: ${occupied} está en producción.`, "error");
+  const occupied = [...selectedCip].find(tag => {
+    const equipment = simulator.equipment.get(tag);
+    return equipment?.batchId || equipment?.status === "Operando";
+  });
+  if (occupied) {
+    const equipment = simulator.equipment.get(occupied);
+    const assignment = equipment?.batchId ? ` asignado al lote ${equipment.batchId}` : " en producción";
+    return toast(`Interlock: ${occupied} está${assignment}.`, "error");
+  }
   const duration = Number(new FormData($("#cip-config")).get("duration")) || 8;
   cipRunning = true;
   PersistentState.write("dagoca-cip", { running: true, route: [...selectedCip], phase: 0, startedAt: new Date().toISOString() });
@@ -678,28 +712,44 @@ function applyAccessControl() {
 function openEquipment(tag) {
   const equipment = simulator.equipment.get(tag);
   if (!equipment) return;
+  equipmentFocusReturn = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   $("#drawer-title").textContent = `${equipment.displayTag || equipment.tag} · ${equipment.name}`;
   const related = alarms.alarms.filter(alarm => alarm.equipment === equipment.tag || alarm.tag.includes(equipment.tag)).slice(0, 3);
   const activeBatch = simulator.batches.find(batch => batch.id === equipment.batchId);
-  const variables = [
-    ["Nivel", equipment.level, "%"], ["Temperatura", equipment.temperature, "°C"], ["Setpoint", equipment.setpoint, "°C"],
-    ["Presión", equipment.pressure, "bar"], ["pH", equipment.ph, "pH"], ["Densidad", equipment.density, "SG"],
-    ["Turbidez", equipment.turbidity, "NTU"], ["ΔP filtro", equipment.differentialPressure, "bar"]
-  ].filter(([, value]) => value != null);
+  const processVariables = [];
+  if (["tank", "filter"].includes(equipment.type)) processVariables.push(["Nivel", equipment.level, "%"]);
+  if (["tank", "filter", "cooler"].includes(equipment.type)) {
+    processVariables.push(["Temperatura", equipment.temperature, "°C"], ["Setpoint", equipment.setpoint, "°C"]);
+  }
+  if (["tank", "filter", "cooler"].includes(equipment.type)) processVariables.push(["Presión", equipment.pressure, "bar"]);
+  processVariables.push(
+    ["pH", equipment.ph, "pH"], ["Densidad", equipment.density, "SG"],
+    ["Turbidez", equipment.turbidity, "NTU"], ["ΔP filtro", equipment.differentialPressure, "bar"],
+    ["Posición", equipment.position, ""]
+  );
+  if (["pump", "agitator"].includes(equipment.type)) {
+    processVariables.push(["Estado", equipment.status, ""], ["Arranques", equipment.starts, ""]);
+  }
+  if (["bottling", "cip"].includes(equipment.type)) processVariables.push(["Estado", equipment.status, ""]);
+  const variables = processVariables.filter(([, value]) => value != null);
   const cellarDetails = cellarOperationalDetails(equipment);
+  const association = manualAssociations[equipment.tag] || {};
+  const canOperateValve = equipment.type === "valve" || Boolean(association.valve);
+  const canOperateDrive = ["pump", "agitator"].includes(equipment.type) || Boolean(association.pump);
+  const manualActions = [
+    canOperateValve ? `<button class="btn" data-manual-command="valve" data-target="${equipment.tag}" ${!["manual", "simulation"].includes(simulator.mode) || simulator.emergency ? "disabled" : ""}>Conmutar válvula</button>` : "",
+    canOperateDrive ? `<button class="btn" data-manual-command="drive" data-target="${equipment.tag}" ${!["manual", "simulation"].includes(simulator.mode) || simulator.emergency || !equipment.clean ? "disabled" : ""}>${equipment.type === "agitator" ? "Conmutar agitador" : "Conmutar bomba"}</button>` : ""
+  ].filter(Boolean).join("");
   $("#drawer-content").innerHTML = `<div class="detail-hero">
     <div class="tank-large"><i class="level" style="height:${equipment.level}%"></i></div>
-    <div><p class="detail-status">● ${equipment.status}</p><p style="margin-top:8px;color:var(--muted);font-size:10px">Servicio: ${equipmentServices[equipment.tag] || equipment.service}<br>Lote: ${equipment.batchId || "Sin asignar"} · Receta: ${activeBatch?.recipe || "—"}<br>CIP: ${equipment.cipStatus} · Modo: ${simulator.mode.toUpperCase()}</p>${qualityLabel(equipment.quality)}</div>
+    <div><p class="detail-status">● ${equipment.status}</p><p class="detail-meta">Servicio: ${equipmentServices[equipment.tag] || equipment.service}<br>Lote: ${equipment.batchId || "Sin asignar"} · Receta: ${activeBatch?.recipe || "—"}<br>CIP: ${equipment.cipStatus} · Modo: ${simulator.mode.toUpperCase()}</p>${qualityLabel(equipment.quality)}</div>
   </div>
   <div class="detail-grid">${variables.map(([label, value, unit]) => detailValue(label, `${value} ${unit}`)).join("")}${activeBatch ? detailValue("Tiempo en etapa", formatTime(simulator.stageProgress)) : ""}${detailValue("Último mantenimiento", equipment.lastMaintenance)}</div>
   ${cellarDetails}
   <h3>Instrumentación asociada</h3><div class="instrument-list">${equipment.instruments.length ? equipment.instruments.map(sensor => `<p><code>${sensor.tag}</code><span>${sensor.variable} · ${sensor.status}</span>${qualityLabel(sensor.quality)}</p>`).join("") : `<p><span>INSTRUMENTO PENDIENTE DE SELECCIÓN</span>${qualityLabel()}</p>`}</div>
-  <h3>Alarmas relacionadas</h3><div>${related.length ? related.map(a => `<p class="engineering-note">${a.tag} · ${a.description}</p>`).join("") : '<p style="color:var(--muted);font-size:10px">Sin alarmas relacionadas.</p>'}</div>
-  <h3>Actuadores asociados</h3><p style="color:var(--muted);font-size:10px">${associatedActuatorText(equipment.tag)}</p>
-  <h3>Comandos manuales</h3><div class="drawer-actions">
-    <button class="btn" data-manual-command="valve" data-target="${equipment.tag}" ${!["manual", "simulation"].includes(simulator.mode) || simulator.emergency ? "disabled" : ""}>Conmutar válvula</button>
-    <button class="btn" data-manual-command="pump" data-target="${equipment.tag}" ${!["manual", "simulation"].includes(simulator.mode) || simulator.emergency || !equipment.clean ? "disabled" : ""}>Conmutar bomba</button>
-  </div>
+  <h3>Alarmas relacionadas</h3><div>${related.length ? related.map(a => `<p class="engineering-note">${a.tag} · ${a.description}</p>`).join("") : '<p class="detail-muted">Sin alarmas relacionadas.</p>'}</div>
+  <h3>Actuadores asociados</h3><p class="detail-muted">${associatedActuatorText(equipment.tag)}</p>
+  ${manualActions ? `<h3>Comandos manuales</h3><div class="drawer-actions">${manualActions}</div>` : ""}
   <p class="engineering-note" style="margin-top:12px">La HMI no sustituye protecciones mecánicas de presión ni circuitos instrumentados de seguridad.</p>`;
   $("#equipment-drawer").classList.add("open");
   $("#equipment-drawer").setAttribute("aria-hidden", "false");
@@ -728,7 +778,14 @@ function cellarOperationalDetails(equipment) {
       <dt>Interlock</dt><dd>${equipment.maintenance ? "Mantenimiento / fuera de servicio" : equipment.cipStatus !== "LIMPIO" ? "CIP pendiente" : "Sin bloqueo propio"}</dd>
     </dl>`;
 }
-function closeDrawer() { $("#equipment-drawer").classList.remove("open"); $("#equipment-drawer").setAttribute("aria-hidden", "true"); }
+function closeDrawer() {
+  const drawer = $("#equipment-drawer");
+  if (!drawer.classList.contains("open")) return;
+  drawer.classList.remove("open");
+  drawer.setAttribute("aria-hidden", "true");
+  equipmentFocusReturn?.focus?.();
+  equipmentFocusReturn = null;
+}
 
 function interlockReject(reason, equipment, action) {
   toast(`INTERLOCK · ${reason} · Equipo: ${equipment} · Acción requerida: ${action}`, "error");
@@ -763,7 +820,7 @@ function manualCommand(command, sourceTag) {
   const source = simulator.equipment.get(sourceTag);
   if (!source) return toast("Equipo no disponible.", "error");
   if (!source.clean || source.status === "En limpieza") return interlockReject("Equipo o línea en CIP", source.tag, "Finalizar y drenar la ruta CIP");
-  if (!confirm(`Confirmar comando ${command === "valve" ? "de válvula" : "de bomba"} asociado a ${source.tag}. Los interlocks permanecerán activos.`)) return;
+  if (!confirm(`Confirmar comando ${command === "valve" ? "de válvula" : "de accionamiento"} asociado a ${source.tag}. Los interlocks permanecerán activos.`)) return;
   if (command === "valve") {
     const valve = source.type === "valve" ? source : simulator.equipment.get(manualAssociations[source.tag]?.valve);
     if (!valve) return interlockReject("No existe una válvula operable asociada", source.tag, "Verificar la narrativa de control");
@@ -773,14 +830,14 @@ function manualCommand(command, sourceTag) {
     simulator.log(`${valve.tag} ${valve.position.toLowerCase()} por comando manual desde ${source.tag}`);
     toast(`${valve.tag}: ${valve.position}.`);
   } else {
-    const pump = source.type === "pump" ? source : simulator.equipment.get(manualAssociations[source.tag]?.pump);
-    if (!pump) return interlockReject("No existe una bomba operable asociada", source.tag, "Verificar la narrativa de control");
-    if (pump.tag === "P-001" && simulator.equipment.get("TK-002").level <= 5) return interlockReject("TK-002 sin nivel de succión", "P-001 / TK-002", "Llenar TK-002 y confirmar válvula de succión");
-    if (pump.tag === "P-003" && simulator.equipment.get("E-001").temperature >= 35) return interlockReject("Mosto demasiado caliente para fermentación", "E-001 / P-003", "Reducir TT-109 por debajo de 35 °C");
-    pump.status = pump.status === "Operando" ? "Detenida" : "Operando";
-    if (pump.status === "Operando") pump.starts++;
-    simulator.log(`${pump.tag} ${pump.status.toLowerCase()} por comando manual desde ${source.tag}`);
-    toast(`${pump.tag}: ${pump.status}.`);
+    const drive = ["pump", "agitator"].includes(source.type) ? source : simulator.equipment.get(manualAssociations[source.tag]?.pump);
+    if (!drive) return interlockReject("No existe un accionamiento operable asociado", source.tag, "Verificar la narrativa de control");
+    if (drive.tag === "P-001" && simulator.equipment.get("TK-002").level <= 5) return interlockReject("TK-002 sin nivel de succión", "P-001 / TK-002", "Llenar TK-002 y confirmar válvula de succión");
+    if (drive.tag === "P-003" && simulator.equipment.get("E-001").temperature >= 35) return interlockReject("Mosto demasiado caliente para fermentación", "E-001 / P-003", "Reducir TT-109 por debajo de 35 °C");
+    drive.status = drive.status === "Operando" ? "Detenida" : "Operando";
+    if (drive.status === "Operando") drive.starts++;
+    simulator.log(`${drive.tag} ${drive.status.toLowerCase()} por comando manual desde ${source.tag}`);
+    toast(`${drive.tag}: ${drive.status}.`);
   }
   simulator.emitState();
   openEquipment(sourceTag);
@@ -845,6 +902,7 @@ function switchView(view, updateHash = true) {
   $("#view-title").textContent = $(`#view-${view}`).dataset.title;
   $("#sidebar").classList.remove("open");
   $("#menu-toggle").setAttribute("aria-expanded", "false");
+  $("#menu-toggle").setAttribute("aria-label", "Abrir menú");
   if (view === "trends" && trends.chart) { trends.chart.resize(); trends.select($("#tag-select").value, $("#range-select").value); }
   if (updateHash && location.hash !== `#${view}`) history.replaceState(null, "", `#${view}`);
 }
@@ -855,6 +913,7 @@ function initNavigation() {
   $("#menu-toggle").addEventListener("click", event => {
     const open = $("#sidebar").classList.toggle("open");
     event.currentTarget.setAttribute("aria-expanded", String(open));
+    event.currentTarget.setAttribute("aria-label", open ? "Cerrar menú" : "Abrir menú");
   });
   window.addEventListener("hashchange", () => switchView(location.hash.slice(1) || "home", false));
   switchView(location.hash.slice(1) || "home", false);

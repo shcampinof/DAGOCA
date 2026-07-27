@@ -247,7 +247,8 @@ class ScadaSimulator {
       const instruments = profile ? this.createNewTankSensors(profile) : [
         new Sensor(index ? "LSL-110" : "LSL-112", "Nivel bajo", "%"),
         new Sensor(index ? "LSH-108" : "LSH-111", "Nivel alto", "%"),
-        new Sensor("TT-111", "Temperatura", "°C"), new Sensor("TC-111", "Control de temperatura", "°C")
+        new Sensor("TT-111", "Temperatura", "°C"), new Sensor("TC-111", "Control de temperatura", "°C"),
+        new Sensor("PT-111", "Presión", "bar"), new Sensor("AIT-111", "Densidad", "SG", "VALOR DE SIMULACIÓN")
       ];
       items.push(new Tank(tag, `Fermentador ${String.fromCharCode(65 + index)}`, {
         density: 1.05, pressure: 0, temperature: 18, setpoint: 18, instruments

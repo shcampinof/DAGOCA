@@ -32,10 +32,12 @@ Después abra `http://localhost:8000`.
 | Embotellado | Transferencia final desde TK-007 a EMB-01 |
 | CIP y limpieza | P-000, rutas, fases, retorno, drenaje y bloqueos |
 | Lotes | Creación, asignación y trazabilidad |
+| Recetas | Parámetros simulados de elaboración y edición por rol |
 | Históricos | Tendencias locales PV/SP y exportación CSV |
 | Alarmas | Ciclo de vida, filtros y reconocimiento |
 | Mantenimiento | Disponibilidad y estado de activos |
 | Configuración | Sesión, simulación y diagnóstico exclusivo de Ingeniería |
+| Acerca del sistema | Versión, calidad de señales, conexión y persistencia |
 
 ## Equipos y tags principales
 
@@ -90,6 +92,22 @@ E-001 es un intercambiador de paso, no un tanque. E-001, fermentadores y madurad
 - `PENDIENTES_PROCESO.md`: conflictos documentales y datos no confirmados.
 
 La persistencia usa el esquema `dagoca-storage-schema = 2`. Al abrir una instalación anterior, los lotes activos que estaban en los índices antiguos de filtrado secundario o maduración se reubican en Maduración para impedir que omitan la etapa en el flujo corregido. Para esos lotes se normalizan únicamente los estados transitorios de transferencia: el fermentador queda sucio y vacío, el madurador reservado con producto y TK-007 vacío, conservando su condición de limpieza o mantenimiento. Se conservan usuarios, recetas, alarmas, históricos, eventos, estados de mantenimiento y lotes finalizados.
+
+Los recursos estáticos usan un identificador de versión en sus URL. Esto evita que
+el navegador combine archivos JavaScript de versiones distintas después de una
+publicación en GitHub Pages.
+
+## Validación local
+
+Además de abrir la interfaz en un servidor estático, puede ejecutar:
+
+```powershell
+Get-ChildItem js\*.js | ForEach-Object { node --check $_.FullName }
+node tests\smoke.js
+```
+
+La prueba recorre la secuencia completa con `TK-006E` y `TK-008J`, verifica el
+orden de las etapas, la capacidad instalada y la migración del esquema anterior.
 
 PLC previsto: Allen-Bradley CompactLogix 5380 5069-L320ER con Studio 5000. El navegador no debe conectarse directamente al PLC; la conexión futura requiere gateway y backend.
 
