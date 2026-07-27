@@ -815,6 +815,11 @@ function updateStatus() {
   $("#emergency-btn").classList.toggle("active", simulator.emergency);
   $(".safety-strip").classList.toggle("emergency-active", simulator.emergency);
   $("#user-label").textContent = username;
+  $$(".mode-switch button").forEach(button => {
+    const active = button.dataset.mode === simulator.mode;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
 }
 
 function renderTrendSummary() {
@@ -839,6 +844,7 @@ function switchView(view, updateHash = true) {
   });
   $("#view-title").textContent = $(`#view-${view}`).dataset.title;
   $("#sidebar").classList.remove("open");
+  $("#menu-toggle").setAttribute("aria-expanded", "false");
   if (view === "trends" && trends.chart) { trends.chart.resize(); trends.select($("#tag-select").value, $("#range-select").value); }
   if (updateHash && location.hash !== `#${view}`) history.replaceState(null, "", `#${view}`);
 }
@@ -846,7 +852,10 @@ function switchView(view, updateHash = true) {
 function initNavigation() {
   $$(".nav-item").forEach(button => button.addEventListener("click", () => switchView(button.dataset.view)));
   $$("[data-go]").forEach(button => button.addEventListener("click", () => switchView(button.dataset.go)));
-  $("#menu-toggle").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
+  $("#menu-toggle").addEventListener("click", event => {
+    const open = $("#sidebar").classList.toggle("open");
+    event.currentTarget.setAttribute("aria-expanded", String(open));
+  });
   window.addEventListener("hashchange", () => switchView(location.hash.slice(1) || "home", false));
   switchView(location.hash.slice(1) || "home", false);
 }
@@ -854,7 +863,6 @@ function initNavigation() {
 function initControls() {
   $$(".mode-switch button").forEach(button => button.addEventListener("click", () => {
     if (["maintenance", "simulation"].includes(button.dataset.mode) && !requirePermission(role, "configureEquipment", toast)) return;
-    $$(".mode-switch button").forEach(item => item.classList.remove("active")); button.classList.add("active");
     simulator.setMode(button.dataset.mode);
   }));
   $("#start-btn").addEventListener("click", () => simulator.start());
@@ -964,7 +972,7 @@ function init() {
   $("#settings-form [name=fermenters]").value = demoConfig.plant.fermenters;
   $("#settings-form [name=maturationTanks]").value = demoConfig.plant.maturationTanks;
   $("#settings-form [name=stageSeconds]").value = settings.stageSeconds || demoConfig.simulation.secondsPerStage;
-  $$(".mode-switch button").forEach(button => button.classList.toggle("active", button.dataset.mode === simulator.mode));
+  $("#menu-toggle").setAttribute("aria-expanded", "false");
   dataProvider.connect().catch(() => toast("No fue posible iniciar el proveedor de simulación.", "error"));
   initNavigation(); initControls(); initTrends(); initBus(); renderCipSteps(); renderAll();
   $("#clock").textContent = new Date().toLocaleTimeString("es-CO");
