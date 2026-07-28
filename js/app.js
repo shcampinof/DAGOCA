@@ -194,72 +194,151 @@ function renderMimicLegacy() {
   $$("#plant-mimic [data-equipment]").forEach(button => button.addEventListener("click", () => openEquipment(button.dataset.equipment)));
 }
 
-function bankSummary(tags, title, range, destinationView) {
-  const equipment = tags.map(tag => simulator.equipment.get(tag)).filter(Boolean);
-  const counts = {
-    Operando: equipment.filter(item => item.status === "Operando").length,
-    Ocupados: equipment.filter(item => item.batchId).length,
-    Disponibles: equipment.filter(item => item.available).length,
-    CIP: equipment.filter(item => item.status === "En limpieza" || item.cipStatus?.startsWith("CIP")).length
-  };
-  const active = equipment.find(item => item.status === "Operando") || equipment.find(item => item.batchId);
-  return `<button class="flow-bank" data-go="${destinationView}">
-    <span class="flow-zone">${title}</span>
-    <strong>${range} · ${equipment.length} equipos</strong>
-    <span class="bank-counts">${Object.entries(counts).map(([key, value]) => `<b>${value}<small>${key}</small></b>`).join("")}</span>
-    <span class="bank-active">${active ? `Activo: ${active.displayTag || active.tag} · ${active.temperature.toFixed(1)} °C · ${active.batchId || "Sin lote"}` : "Sin equipo activo · abrir vista detallada →"}</span>
-  </button>`;
+function synopticState(equipment) {
+  if (equipment.status === "Alarma") return { key: "alarm", label: "Alarma" };
+  if (equipment.maintenance) return { key: "maintenance", label: "Mantenimiento" };
+  if (equipment.status === "En limpieza" || equipment.cipStatus?.startsWith("CIP")) return { key: "cip", label: "CIP" };
+  if (equipment.status === "Operando") return { key: "operating", label: "Operando" };
+  if (equipment.batchId || ["Reservado", "Asignado"].includes(equipment.status)) return { key: "reserved", label: "Reservado" };
+  if (!equipment.clean || equipment.status === "Sucio") return { key: "dirty", label: "Sucio" };
+  if (equipment.available || equipment.status === "Disponible") return { key: "available", label: "Disponible" };
+  return { key: "waiting", label: equipment.status || "En espera" };
 }
 
-function flowEquipment(tag, area, detail, options = {}) {
+function synopticReading(equipment) {
+  if (equipment.tag === "E-001") return { label: "Salida", value: equipment.temperature, unit: "°C" };
+  if (equipment.tag === "TK-007" && equipment.turbidity != null) return { label: "Turbidez", value: equipment.turbidity, unit: "NTU" };
+  if (equipment.type === "filter" || ["TK-001", "TK-002"].includes(equipment.tag)) return { label: "Nivel", value: equipment.level, unit: "%" };
+  if (equipment.temperature != null) return { label: "Temperatura", value: equipment.temperature, unit: "°C" };
+  return { label: "Estado", value: equipment.status, unit: "" };
+}
+
+function synopticEquipment(tag, options = {}) {
   const equipment = simulator.equipment.get(tag);
+  const state = synopticState(equipment);
+  const reading = synopticReading(equipment);
   const displayTag = equipment.displayTag || equipment.tag;
-  const status = equipment.status === "Operando" ? "Operando" : equipment.available ? "Disponible" : equipment.status;
-  return `<button class="flow-equipment ${options.exchanger ? "exchanger" : ""}" data-equipment="${tag}">
-    <span class="flow-zone">${area}</span>
-    ${options.exchanger ? `<svg viewBox="0 0 120 72" aria-hidden="true"><path d="M12 11H108L118 36 108 61H12L2 36Z"/><circle cx="60" cy="36" r="22"/><path d="M69 22H58L47 36 58 50H69"/></svg>` : `<span class="flow-vessel ${options.filter ? "filter" : ""}"><i style="height:${equipment.level}%"></i></span>`}
-    <strong>${displayTag}</strong><span>${equipment.name}</span><small>${detail}</small>
-    <em class="state-${status.toLowerCase().replaceAll(" ", "-")}">${status}</em>
+  const shape = options.exchanger ? "exchanger" : options.filter ? "filter" : options.packaging ? "packaging" : "tank";
+  return `<button class="synoptic-equipment ${shape} state-${state.key}" data-equipment="${tag}" aria-label="${displayTag}, ${equipment.name}, ${state.label}">
+    <span class="synoptic-symbol" aria-hidden="true">${options.exchanger ? `<svg viewBox="0 0 120 72"><path d="M12 11H108L118 36 108 61H12L2 36Z"/><circle cx="60" cy="36" r="22"/><path d="M69 22H58L47 36 58 50H69"/></svg>` : options.packaging ? "<i></i><i></i><i></i>" : `<i class="synoptic-level" style="height:${equipment.level}%"></i>`}</span>
+    <strong>${displayTag}</strong><span class="synoptic-name">${equipment.name}</span>
+    <span class="synoptic-value"><small>${reading.label}</small><b>${typeof reading.value === "number" ? reading.value.toFixed(reading.unit === "%" ? 0 : 1) : reading.value} ${reading.unit}</b></span>
+    <span class="synoptic-state"><i></i>${state.label}</span>
+    <span class="synoptic-lot">${equipment.batchId ? `Lote ${equipment.batchId}` : "Sin lote"}</span>
   </button>`;
 }
 
-function routePump(tag, service) {
+function synopticTank(tag) {
+  const equipment = simulator.equipment.get(tag);
+  const state = synopticState(equipment);
+  return `<button class="bank-tank state-${state.key}" data-equipment="${tag}" aria-label="${tag}, ${state.label}, ${equipment.temperature.toFixed(1)} °C">
+    <span class="bank-vessel" aria-hidden="true"><i style="height:${equipment.level}%"></i></span>
+    <strong>${equipment.displayTag || tag}</strong><span>${equipment.temperature.toFixed(1)} °C</span>
+    <small><i></i>${state.label}</small><em>${equipment.batchId || "Sin lote"}</em>
+  </button>`;
+}
+
+function synopticPump(tag, service, active = false) {
   const pump = simulator.equipment.get(tag);
-  return `<button class="route-pump ${pump.status === "Operando" ? "run" : ""}" data-equipment="${tag}" aria-label="${tag}, ${service}, ${pump.status}"><b>▶ ${tag}</b><small>${service}</small><span>${pump.status}</span></button>`;
+  const running = pump.status === "Operando";
+  return `<button class="synoptic-pump ${running ? "run" : ""} ${active ? "route-active" : ""}" data-equipment="${tag}" aria-label="${tag}, ${service}, ${pump.status}">
+    <i aria-hidden="true">▶</i><strong>${tag}</strong><span>${pump.status}</span><small>${service}</small>
+  </button>`;
+}
+
+function pipeConnector(media, label, active = false) {
+  return `<span class="synoptic-pipe ${media} ${active ? "active" : ""}" aria-label="${label}"><i></i><b>${label}</b></span>`;
+}
+
+function plantGeneralState() {
+  if (simulator.emergency || alarms.activeCritical) return { key: "alarm", label: "Alarma activa" };
+  if (cipRunning) return { key: "cip", label: "Limpieza activa" };
+  if (simulator.running && simulator.activeBatch) return { key: "operating", label: "Lote en proceso" };
+  if (simulator.activeBatch || simulator.batches.some(batch => batch.status === "Programado")) return { key: "ready", label: "Lista para operar" };
+  return { key: "waiting", label: "Planta detenida" };
 }
 
 function renderMimic() {
   const active = simulator.activeStage;
-  $("#plant-mimic").innerHTML = `<div class="plant-flow-board">
-    <header class="flow-board-head">
-      <div><strong>DAGOCA · DISTRIBUCIÓN GENERAL DE PLANTA</strong><small>Sinóptico operacional simplificado · seleccione un equipo o grupo para ver detalle</small></div>
-      <dl class="plant-state-summary">
-        <div><dt>Estado general</dt><dd>${simulator.emergency ? "EMERGENCIA" : simulator.running ? "EN MARCHA" : "EN ESPERA"}</dd></div>
-        <div><dt>Fallo enclavado</dt><dd>${simulator.emergency ? "SÍ" : "NO"}</dd></div>
-        <div><dt>Proceso activo</dt><dd>${simulator.currentStep()?.name || "Sin lote"}</dd></div>
-      </dl>
+  const plantState = plantGeneralState();
+  $("#plant-mimic").innerHTML = `<div class="continuous-synoptic">
+    <header class="synoptic-head">
+      <div><strong>DAGOCA · DISTRIBUCIÓN GENERAL DE PLANTA</strong><small>Sinóptico operacional · flujo de izquierda a derecha</small></div>
+      <div class="general-state state-${plantState.key}"><i></i><span>Estado general</span><b>${plantState.label}</b><small>${simulator.currentStep()?.name || "Sin etapa activa"} · ${simulator.activeBatch?.id || "Sin lote"}</small></div>
     </header>
-    <div class="service-legend" aria-label="Leyenda de servicios">
-      <span class="water">Agua de proceso</span><span class="product">Mosto / cerveza</span><span class="cold">Suministro chiller</span><span class="return">Retorno chiller</span><span class="steam">Vapor / condensado</span><span class="cip">CIP disponible</span>
+    <div class="synoptic-legend" aria-label="Leyenda de tuberías y estados">
+      <span class="water">Agua de proceso</span><span class="wort">Mosto</span><span class="beer">Cerveza</span>
+      <span class="cold">Suministro chiller</span><span class="cold-return">Retorno chiller</span>
+      <span class="steam">Vapor</span><span class="condensate">Condensado</span><span class="cip">CIP / retorno</span>
     </div>
-    <div class="flow-scroll">
-      <div class="main-process-route">
-        <div class="process-step water-step"><span class="step-number">01 · AGUA DE PROCESO</span><div class="paired-equipment">${flowEquipment("TK-001", "ÁREA 01 · AGUA", "Filtrado")}${flowEquipment("TK-002", "ÁREA 01 · AGUA", "Almacenamiento")}</div><b class="step-route water-link">TK-001 → TK-002 →</b></div>
-        <div class="process-step"><span class="step-number">02 · MACERACIÓN</span>${routePump("P-001", "TK-002 → TK-003")}${flowEquipment("TK-003", "ÁREA 02 · ELABORACIÓN", "Maceración")}<b class="step-route product-link">MOSTO →</b></div>
-        <div class="process-step"><span class="step-number">03 · FILTRADO I</span>${flowEquipment("TK-004", "ÁREA 02 · ELABORACIÓN", "Filtrado I", { filter: true })}<b class="step-route product-link">MOSTO →</b></div>
-        <div class="process-step"><span class="step-number">04 · COCCIÓN</span>${routePump("P-002", "TK-004 → TK-005")}${flowEquipment("TK-005", "ÁREA 02 · ELABORACIÓN", "Cocción")}<b class="step-route product-link">MOSTO →</b></div>
-        <div class="process-step"><span class="step-number">05 · ENFRIAMIENTO</span>${routePump("P-003", "TK-005 → E-001")}${flowEquipment("E-001", "ÁREA 03 · ENFRIAMIENTO Y TRANSFERENCIA", `Salida ${simulator.equipment.get("E-001").temperature.toFixed(1)} °C`, { exchanger: true })}<b class="step-route product-link">↓ A FERMENTADOR SELECCIONADO</b></div>
-        <div class="process-step"><span class="step-number">06 · FERMENTACIÓN</span>${bankSummary(fermenterTags, "ÁREA 04 · FERMENTACIÓN", "TK-006A–E", "fermentation")}<b class="step-route beer-link">CERVEZA →</b></div>
-        <div class="process-step"><span class="step-number">07 · MADURACIÓN</span>${bankSummary(maturationTags, "ÁREA 05 · MADURACIÓN", "TK-008A–J", "maturation")}<b class="step-route beer-link">CERVEZA →</b></div>
-        <div class="process-step"><span class="step-number">08 · FILTRADO FINAL</span>${routePump("P-004", "Maduración → TK-007")}${flowEquipment("TK-007", "ÁREA 06 · FILTRADO Y EMPAQUE", "Filtrado final", { filter: true })}<b class="step-route beer-link">PRODUCTO FILTRADO →</b></div>
-        <div class="process-step"><span class="step-number">09 · EMPAQUE</span><button class="packaging-node ${active === 9 ? "active" : ""}" data-equipment="EMB-01"><span>ÁREA 06</span><strong>EMB-01</strong><small>Embotellado</small><em>${simulator.equipment.get("EMB-01").status}</em></button><b class="step-route">FIN DE LÍNEA</b></div>
+    <div class="synoptic-canvas">
+      <div class="upper-process-line">
+        <section class="synoptic-area area-water">
+          <h3>ÁREA 01 · SERVICIOS Y AGUA</h3>
+          <div class="area-equipment-line">
+            ${synopticEquipment("TK-001", { filter: true })}
+            ${pipeConnector("water", "Agua filtrada", active === 1)}
+            ${synopticEquipment("TK-002")}
+          </div>
+        </section>
+        <div class="inter-area-transfer water-transfer">${synopticPump("P-001", "TK-002 → TK-003", active === 2)}${pipeConnector("water", "A maceración", active === 2)}</div>
+        <section class="synoptic-area area-brewhouse">
+          <h3>ÁREA 02 · ELABORACIÓN</h3>
+          <div class="area-equipment-line">
+            ${synopticEquipment("TK-003")}
+            ${pipeConnector("wort", "Mosto", active === 3)}
+            ${synopticEquipment("TK-004", { filter: true })}
+            <span class="pump-on-pipe">${synopticPump("P-002", "TK-004 → TK-005", active === 4)}</span>
+            ${pipeConnector("wort", "A cocción", active === 4)}
+            ${synopticEquipment("TK-005")}
+          </div>
+          <div class="thermal-services"><span class="steam">Vapor → chaquetas TK-003 / TK-005</span><span class="condensate">Condensado → recuperación</span></div>
+        </section>
+        <div class="inter-area-transfer wort-transfer">${synopticPump("P-003", "TK-005 → E-001", active === 5)}${pipeConnector("wort", "Mosto caliente", active === 5)}</div>
+        <section class="synoptic-area area-cooling">
+          <h3>ÁREA 03 · ENFRIAMIENTO Y TRANSFERENCIA</h3>
+          <div class="area-equipment-line">${synopticEquipment("E-001", { exchanger: true })}</div>
+          <div class="cooling-service-lines"><span class="cold">Suministro chiller → E-001</span><span class="cold-return">E-001 → retorno</span></div>
+        </section>
       </div>
-    </div>
-    <div class="service-summary">
-      <span class="steam">Vapor → chaquetas TK-003 / TK-005 · condensado → recuperación</span>
-      <span class="cold">Chiller → E-001 / TK-006 / TK-008</span>
-      <span class="return">Retorno → chiller</span>
-      <span class="cip">${routePump("P-000", "Circuito CIP independiente")}</span>
+
+      <div class="cold-transfer-route ${active === 5 || active === 6 ? "active" : ""}"><span>Producto enfriado desde E-001</span><i></i><b>↓ Al fermentador seleccionado</b></div>
+
+      <div class="cellar-process-line">
+        <section class="synoptic-area tank-bank fermentation-bank">
+          <div class="bank-title"><h3>ÁREA 04 · FERMENTACIÓN</h3><button class="text-button" data-go="fermentation">Abrir vista detallada →</button></div>
+          <div class="parallel-collector beer"><span>COLECTOR DE FERMENTACIÓN · equipos en paralelo</span><i></i></div>
+          <div class="bank-tank-strip">${fermenterTags.map(synopticTank).join("")}</div>
+          <div class="bank-service-lines"><span class="cold">Suministro chiller</span><span class="cold-return">Retorno al chiller</span></div>
+        </section>
+        <div class="cellar-transfer">${pipeConnector("beer", "Fermentador seleccionado → madurador seleccionado", active === 7)}</div>
+        <section class="synoptic-area tank-bank maturation-bank">
+          <div class="bank-title"><h3>ÁREA 05 · MADURACIÓN</h3><button class="text-button" data-go="maturation">Abrir vista detallada →</button></div>
+          <div class="parallel-collector beer"><span>COLECTOR DE MADURACIÓN · equipos en paralelo</span><i></i></div>
+          <div class="bank-tank-strip maturation-strip">${maturationTags.map(synopticTank).join("")}</div>
+          <div class="bank-service-lines"><span class="cold">Suministro chiller</span><span class="cold-return">Retorno al chiller</span></div>
+        </section>
+      </div>
+
+      <div class="maturation-drop-route ${active === 8 ? "active" : ""}"><span>Salida del madurador seleccionado</span><i></i><b>↓ A filtrado final</b></div>
+
+      <div class="lower-process-line">
+        <section class="synoptic-area cip-zone">
+          <h3>SISTEMA CIP · SERVICIO INDEPENDIENTE</h3>
+          <div class="cip-station-symbol"><b>CIP-01</b><span>Preparación y retorno</span>${synopticPump("P-000", "Circuito CIP", active === 0)}</div>
+          <div class="cip-route-available">Ruta CIP disponible · línea discontinua</div>
+        </section>
+        <section class="synoptic-area final-process">
+          <h3>ÁREA 06 · FILTRADO FINAL Y EMPAQUE</h3>
+          <div class="area-equipment-line">
+            ${synopticPump("P-004", "Maduración → TK-007", active === 8)}
+            ${pipeConnector("beer", "Cerveza", active === 8)}
+            ${synopticEquipment("TK-007", { filter: true })}
+            ${pipeConnector("beer", "Producto filtrado", active === 9)}
+            ${synopticEquipment("EMB-01", { packaging: true })}
+          </div>
+        </section>
+      </div>
     </div>
   </div>`;
   $$("#plant-mimic [data-equipment]").forEach(button => button.addEventListener("click", () => openEquipment(button.dataset.equipment)));
