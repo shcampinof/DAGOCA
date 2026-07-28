@@ -83,6 +83,7 @@ nav { display: grid; gap: 6px; }
 .connection { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; color: var(--text); font-size: 12px; }
 .connection i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
 .sidebar-foot small { font-size: 9px; }
+.sidebar-collapse { display: none; }
 .workspace { margin-left: var(--sidebar); min-width: 0; }
 .topbar { height: 78px; position: sticky; top: 0; z-index: 30; padding: 0 24px; display: flex; align-items: center; gap: 16px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
 .topbar h1, h2, p { margin: 0; }
@@ -3048,4 +3049,90 @@ td code { font-size: var(--font-sm); }
   .detail-agitator.run .detail-impeller {
     animation: none;
   }
+}
+
+/* Panel lateral compacto para ampliar el área útil del sinóptico en escritorio */
+@media (min-width: 1501px) {
+  .sidebar,
+  .workspace {
+    transition: width .22s ease, margin-left .22s ease;
+  }
+  .sidebar-collapse {
+    width: 32px;
+    height: 32px;
+    position: absolute;
+    z-index: 2;
+    top: 18px;
+    right: 12px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #78909b;
+    border-radius: 3px;
+    background: #1d3441;
+    color: #f3f6f8;
+    font-size: 19px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .sidebar-collapse:hover { border-color: #9dc8be; background: #385260; }
+  .sidebar-collapse:focus-visible { outline-color: #7fd6c2; }
+  .app-shell.sidebar-collapsed .sidebar {
+    width: 86px;
+    padding-inline: 10px;
+  }
+  .app-shell.sidebar-collapsed .workspace { margin-left: 86px; }
+  .app-shell.sidebar-collapsed .sidebar-collapse {
+    top: 14px;
+    right: 10px;
+  }
+  .app-shell.sidebar-collapsed .brand {
+    min-height: 56px;
+    padding: 5px 0 16px;
+  }
+  .app-shell.sidebar-collapsed .wordmark strong {
+    height: 28px;
+    overflow: hidden;
+    font-size: 0;
+  }
+  .app-shell.sidebar-collapsed .wordmark strong::after {
+    content: "DG";
+    display: block;
+    padding-top: 4px;
+    color: #fff;
+    font-size: 17px;
+    letter-spacing: .06em;
+  }
+  .app-shell.sidebar-collapsed .wordmark > span,
+  .app-shell.sidebar-collapsed .wordmark small { display: none; }
+  .app-shell.sidebar-collapsed .sidebar nav { gap: 6px; }
+  .app-shell.sidebar-collapsed .nav-item {
+    min-height: 48px;
+    padding: 5px;
+    position: relative;
+    justify-content: center;
+    gap: 0;
+    overflow: visible;
+    font-size: 0;
+  }
+  .app-shell.sidebar-collapsed .nav-item span {
+    width: 42px;
+    min-width: 42px;
+    padding: 6px 3px;
+    font-size: 12px;
+  }
+  .app-shell.sidebar-collapsed .nav-item b {
+    min-width: 20px;
+    min-height: 20px;
+    padding: 2px 5px;
+    position: absolute;
+    top: 1px;
+    right: 0;
+    border-radius: 10px;
+    font-size: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .workspace { transition: none; }
 }

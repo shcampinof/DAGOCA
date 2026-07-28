@@ -186,6 +186,9 @@ assert.doesNotMatch(`${html}\n${appSource}`, /Aplicación académica|proyecto ac
 assert.doesNotMatch(appSource, /\bprompt\s*\(/);
 assert.match(html, /Productos y sabores/);
 assert.match(html, /Nueva orden de lote/);
+assert.match(html, /id="sidebar-collapse"[^>]*aria-controls="sidebar"/);
+assert.match(appSource, /dagoca-sidebar-collapsed/);
+assert.match(css, /\.app-shell\.sidebar-collapsed \.workspace\s*\{\s*margin-left:\s*86px/);
 assert.match(css, /--process-water:\s*#6ec6e8/i);
 assert.match(css, /\.home-process-node\[data-go="water"\][^{]*\.symbol-level\s*\{[\s\S]*?background:\s*var\(--process-water\)/i);
 

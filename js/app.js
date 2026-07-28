@@ -1281,7 +1281,22 @@ function switchView(view, updateHash = true) {
 }
 
 function initNavigation() {
-  $$(".nav-item").forEach(button => button.addEventListener("click", () => switchView(button.dataset.view)));
+  const shell = $(".app-shell");
+  const collapseButton = $("#sidebar-collapse");
+  const setSidebarCollapsed = (collapsed, persist = true) => {
+    shell.classList.toggle("sidebar-collapsed", collapsed);
+    collapseButton.setAttribute("aria-expanded", String(!collapsed));
+    collapseButton.setAttribute("aria-label", collapsed ? "Expandir panel lateral" : "Minimizar panel lateral");
+    collapseButton.title = collapsed ? "Expandir panel lateral" : "Minimizar panel lateral";
+    collapseButton.querySelector("span").textContent = collapsed ? "»" : "«";
+    if (persist) safeStore("dagoca-sidebar-collapsed", String(collapsed));
+  };
+  $$(".nav-item").forEach(button => {
+    button.title = button.textContent.replace(/\s+/g, " ").trim();
+    button.addEventListener("click", () => switchView(button.dataset.view));
+  });
+  setSidebarCollapsed(localStorage.getItem("dagoca-sidebar-collapsed") === "true", false);
+  collapseButton.addEventListener("click", () => setSidebarCollapsed(!shell.classList.contains("sidebar-collapsed")));
   $$("[data-go]").forEach(button => button.addEventListener("click", () => switchView(button.dataset.go)));
   $("#menu-toggle").addEventListener("click", event => {
     const open = $("#sidebar").classList.toggle("open");
