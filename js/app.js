@@ -1,5 +1,18 @@
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
+function readLocalObject(key, fallback) {
+  try {
+    const value = JSON.parse(localStorage.getItem(key));
+    return value && typeof value === "object" ? value : fallback;
+  } catch { return fallback; }
+}
+let engineeringLimits = sanitizeEngineeringLimits(readLocalObject("dagoca-engineering-limits", {}));
+let productionDefaults = sanitizeOperatingParameters(
+  readLocalObject("dagoca-production-defaults", {}),
+  baseOperatingParameters,
+  engineeringLimits
+);
+demoConfig.engineeringLimits = engineeringLimits;
 const simulator = new ScadaSimulator(demoConfig);
 const alarms = new AlarmManager(simulator.bus);
 const trends = new TrendManager(demoConfig, simulator);
@@ -97,7 +110,7 @@ function classicUnit(equipment, options = {}) {
   </button>`;
 }
 
-function renderMimic() {
+function renderMimicLegacy() {
   const get = tag => simulator.equipment.get(tag);
   const fermenters = [...simulator.equipment.values()].filter(e => e.tag.startsWith("TK-006"));
   const maturation = [...simulator.equipment.values()].filter(e => e.tag.startsWith("TK-008"));
@@ -181,6 +194,78 @@ function renderMimic() {
   $$("#plant-mimic [data-equipment]").forEach(button => button.addEventListener("click", () => openEquipment(button.dataset.equipment)));
 }
 
+function bankSummary(tags, title, range, destinationView) {
+  const equipment = tags.map(tag => simulator.equipment.get(tag)).filter(Boolean);
+  const counts = {
+    Operando: equipment.filter(item => item.status === "Operando").length,
+    Ocupados: equipment.filter(item => item.batchId).length,
+    Disponibles: equipment.filter(item => item.available).length,
+    CIP: equipment.filter(item => item.status === "En limpieza" || item.cipStatus?.startsWith("CIP")).length
+  };
+  const active = equipment.find(item => item.status === "Operando") || equipment.find(item => item.batchId);
+  return `<button class="flow-bank" data-go="${destinationView}">
+    <span class="flow-zone">${title}</span>
+    <strong>${range} · ${equipment.length} equipos</strong>
+    <span class="bank-counts">${Object.entries(counts).map(([key, value]) => `<b>${value}<small>${key}</small></b>`).join("")}</span>
+    <span class="bank-active">${active ? `Activo: ${active.displayTag || active.tag} · ${active.temperature.toFixed(1)} °C · ${active.batchId || "Sin lote"}` : "Sin equipo activo · abrir vista detallada →"}</span>
+  </button>`;
+}
+
+function flowEquipment(tag, area, detail, options = {}) {
+  const equipment = simulator.equipment.get(tag);
+  const displayTag = equipment.displayTag || equipment.tag;
+  const status = equipment.status === "Operando" ? "Operando" : equipment.available ? "Disponible" : equipment.status;
+  return `<button class="flow-equipment ${options.exchanger ? "exchanger" : ""}" data-equipment="${tag}">
+    <span class="flow-zone">${area}</span>
+    ${options.exchanger ? `<svg viewBox="0 0 120 72" aria-hidden="true"><path d="M12 11H108L118 36 108 61H12L2 36Z"/><circle cx="60" cy="36" r="22"/><path d="M69 22H58L47 36 58 50H69"/></svg>` : `<span class="flow-vessel ${options.filter ? "filter" : ""}"><i style="height:${equipment.level}%"></i></span>`}
+    <strong>${displayTag}</strong><span>${equipment.name}</span><small>${detail}</small>
+    <em class="state-${status.toLowerCase().replaceAll(" ", "-")}">${status}</em>
+  </button>`;
+}
+
+function routePump(tag, service) {
+  const pump = simulator.equipment.get(tag);
+  return `<button class="route-pump ${pump.status === "Operando" ? "run" : ""}" data-equipment="${tag}" aria-label="${tag}, ${service}, ${pump.status}"><b>▶ ${tag}</b><small>${service}</small><span>${pump.status}</span></button>`;
+}
+
+function renderMimic() {
+  const active = simulator.activeStage;
+  $("#plant-mimic").innerHTML = `<div class="plant-flow-board">
+    <header class="flow-board-head">
+      <div><strong>DAGOCA · DISTRIBUCIÓN GENERAL DE PLANTA</strong><small>Sinóptico operacional simplificado · seleccione un equipo o grupo para ver detalle</small></div>
+      <dl class="plant-state-summary">
+        <div><dt>Estado general</dt><dd>${simulator.emergency ? "EMERGENCIA" : simulator.running ? "EN MARCHA" : "EN ESPERA"}</dd></div>
+        <div><dt>Fallo enclavado</dt><dd>${simulator.emergency ? "SÍ" : "NO"}</dd></div>
+        <div><dt>Proceso activo</dt><dd>${simulator.currentStep()?.name || "Sin lote"}</dd></div>
+      </dl>
+    </header>
+    <div class="service-legend" aria-label="Leyenda de servicios">
+      <span class="water">Agua de proceso</span><span class="product">Mosto / cerveza</span><span class="cold">Suministro chiller</span><span class="return">Retorno chiller</span><span class="steam">Vapor / condensado</span><span class="cip">CIP disponible</span>
+    </div>
+    <div class="flow-scroll">
+      <div class="main-process-route">
+        <div class="process-step water-step"><span class="step-number">01 · AGUA DE PROCESO</span><div class="paired-equipment">${flowEquipment("TK-001", "ÁREA 01 · AGUA", "Filtrado")}${flowEquipment("TK-002", "ÁREA 01 · AGUA", "Almacenamiento")}</div><b class="step-route water-link">TK-001 → TK-002 →</b></div>
+        <div class="process-step"><span class="step-number">02 · MACERACIÓN</span>${routePump("P-001", "TK-002 → TK-003")}${flowEquipment("TK-003", "ÁREA 02 · ELABORACIÓN", "Maceración")}<b class="step-route product-link">MOSTO →</b></div>
+        <div class="process-step"><span class="step-number">03 · FILTRADO I</span>${flowEquipment("TK-004", "ÁREA 02 · ELABORACIÓN", "Filtrado I", { filter: true })}<b class="step-route product-link">MOSTO →</b></div>
+        <div class="process-step"><span class="step-number">04 · COCCIÓN</span>${routePump("P-002", "TK-004 → TK-005")}${flowEquipment("TK-005", "ÁREA 02 · ELABORACIÓN", "Cocción")}<b class="step-route product-link">MOSTO →</b></div>
+        <div class="process-step"><span class="step-number">05 · ENFRIAMIENTO</span>${routePump("P-003", "TK-005 → E-001")}${flowEquipment("E-001", "ÁREA 03 · ENFRIAMIENTO Y TRANSFERENCIA", `Salida ${simulator.equipment.get("E-001").temperature.toFixed(1)} °C`, { exchanger: true })}<b class="step-route product-link">↓ A FERMENTADOR SELECCIONADO</b></div>
+        <div class="process-step"><span class="step-number">06 · FERMENTACIÓN</span>${bankSummary(fermenterTags, "ÁREA 04 · FERMENTACIÓN", "TK-006A–E", "fermentation")}<b class="step-route beer-link">CERVEZA →</b></div>
+        <div class="process-step"><span class="step-number">07 · MADURACIÓN</span>${bankSummary(maturationTags, "ÁREA 05 · MADURACIÓN", "TK-008A–J", "maturation")}<b class="step-route beer-link">CERVEZA →</b></div>
+        <div class="process-step"><span class="step-number">08 · FILTRADO FINAL</span>${routePump("P-004", "Maduración → TK-007")}${flowEquipment("TK-007", "ÁREA 06 · FILTRADO Y EMPAQUE", "Filtrado final", { filter: true })}<b class="step-route beer-link">PRODUCTO FILTRADO →</b></div>
+        <div class="process-step"><span class="step-number">09 · EMPAQUE</span><button class="packaging-node ${active === 9 ? "active" : ""}" data-equipment="EMB-01"><span>ÁREA 06</span><strong>EMB-01</strong><small>Embotellado</small><em>${simulator.equipment.get("EMB-01").status}</em></button><b class="step-route">FIN DE LÍNEA</b></div>
+      </div>
+    </div>
+    <div class="service-summary">
+      <span class="steam">Vapor → chaquetas TK-003 / TK-005 · condensado → recuperación</span>
+      <span class="cold">Chiller → E-001 / TK-006 / TK-008</span>
+      <span class="return">Retorno → chiller</span>
+      <span class="cip">${routePump("P-000", "Circuito CIP independiente")}</span>
+    </div>
+  </div>`;
+  $$("#plant-mimic [data-equipment]").forEach(button => button.addEventListener("click", () => openEquipment(button.dataset.equipment)));
+  $$("#plant-mimic [data-go]").forEach(button => button.addEventListener("click", () => switchView(button.dataset.go)));
+}
+
 function renderMetrics() {
   const batch = simulator.activeBatch;
   const current = simulator.currentEquipment();
@@ -204,7 +289,7 @@ function renderHome() {
   const cards = [
     ["Modo de operación", cipRunning ? "LIMPIEZA" : modeLabels[simulator.mode] || simulator.mode.toUpperCase(), simulator.running ? "Secuencia habilitada" : "Secuencia detenida", "#2e6f9e"],
     ["Estado de planta", plantState, simulator.emergency ? "Interlock general activo" : "Supervisión disponible", "#18795c"],
-    ["Lote activo", batch?.id || "SIN LOTE", batch?.recipe || "Sin receta asignada", "#2e6f9e"],
+    ["Lote activo", batch?.id || "SIN LOTE", batch?.product || batch?.recipe || "Sin producto asignado", "#2e6f9e"],
     ["Etapa actual", simulator.currentStep()?.name || "EN ESPERA", remaining == null ? "Sin datos" : `${formatTime(remaining, true)} restantes`, "#b6782e"],
     ["Alarmas activas", activeAlarms, activeAlarms ? "Requieren revisión" : "Sin alarmas activas", "#c23b45"],
     ["Progreso de etapa", progress == null ? "SIN DATOS" : `${progress}%`, batch ? `${formatTime(simulator.stageProgress, true)} transcurridos` : "Cree un lote para comenzar", "#18795c"]
@@ -244,7 +329,7 @@ const stageScreens = Object.freeze({
     index: 2, title: "Maceración", short: "Maceración", media: "wort",
     tags: ["TK-003"], actuators: ["P-001", "AG1", "TV-105", "LV-104"],
     instruments: ["LSL-104", "LSH-104", "TE-105", "TT-105", "TC-105"],
-    origin: "TK-002 + malta manual", destination: "TK-004", loop: "TC-105", pv: "Temperatura TK-003", sp: "66,0 °C · valor de simulación",
+    origin: "TK-002 + malta manual", destination: "TK-004", loop: "TC-105", pv: "Temperatura TK-003", sp: "Parámetro preliminar — pendiente de validación",
     note: "Vapor hacia la chaqueta; condensado separado del desagüe CIP."
   },
   filter1: {
@@ -258,14 +343,14 @@ const stageScreens = Object.freeze({
     index: 4, title: "Cocción", short: "Cocción", media: "wort",
     tags: ["TK-005"], actuators: ["P-002", "TV-107", "LV-108", "P-003"],
     instruments: ["LSL-108", "LC-108", "TE-107", "TT-107", "TC-107"],
-    origin: "TK-004 + lúpulo manual", destination: "E-001", loop: "TC-107", pv: "Temperatura TK-005", sp: "100,0 °C · valor de simulación",
+    origin: "TK-004 + lúpulo manual", destination: "E-001", loop: "TC-107", pv: "Temperatura TK-005", sp: "Parámetro preliminar — pendiente de validación",
     note: "Vapor hacia la chaqueta y condensado al sistema de recuperación."
   },
   cooling: {
     index: 5, title: "Enfriamiento", short: "Enfriamiento", media: "glycol",
     tags: ["E-001"], actuators: ["P-003", "TV-109"],
     instruments: ["TT-109", "TC-109", "TV-109", "PI-109"],
-    origin: "TK-005", destination: "TK-006A / B / C / D / E", loop: "TC-109", pv: "Temperatura de salida", sp: "18,0 °C · valor de simulación",
+    origin: "TK-005", destination: "TK-006A / B / C / D / E", loop: "TC-109", pv: "Temperatura de salida", sp: "Parámetro preliminar — pendiente de validación",
     note: "E-001 es de paso: producto separado del suministro y retorno al chiller."
   },
   fermentation: {
@@ -283,12 +368,12 @@ const stageScreens = Object.freeze({
       "TT-119", "TC-119", "PI-119", "TT-122", "TC-122", "PI-122",
       ...maturationTags.flatMap(tankInstrumentTags)
     ],
-    origin: () => simulator.activeBatch?.fermenter || "Fermentador seleccionado", destination: "TK-007", loop: "Control de enfriamiento por tanque", pv: "Temperatura por tanque", sp: "1–4 °C recomendado; validar receta",
+    origin: () => simulator.activeBatch?.fermenter || "Fermentador seleccionado", destination: "TK-007", loop: "Control de enfriamiento por tanque", pv: "Temperatura por tanque", sp: "1–4 °C recomendado",
     note: "Diez maduradores; solo enfriamiento con suministro y retorno al chiller."
   },
   filter2: {
     index: 8, title: "TK-007 – Tanque de filtrado final", short: "Filtrado final", media: "beer",
-    tags: ["TK-007"], actuators: ["LV-125"],
+    tags: ["TK-007"], actuators: ["P-004", "LV-125"],
     instruments: ["LSH-125", "LSL-125", "LC-125", "LY-125", "AIT-125", "PDT-125"],
     origin: () => simulator.activeBatch?.maturation || "Madurador seleccionado", destination: "Embotellado", loop: "LC-125", pv: "Nivel TK-007", sp: "Pendiente de validación",
     note: "ΔP, turbidez y tecnología específica del filtro continúan pendientes."
@@ -446,7 +531,9 @@ function stageStateMarkup(spec) {
   return `<div class="panel-heading"><div><p class="eyebrow">ESTADO DE LA ETAPA</p><h2>${isActive ? sequence.status : spec.title}</h2></div><span class="badge ${isActive ? "Reconocida" : ""}">${isActive ? "EN CURSO" : simulator.activeStage > spec.index ? "COMPLETADA" : "DISPONIBLE"}</span></div>
     <dl class="stage-state-values">
       <dt>Acción activa</dt><dd>${isActive ? sequence.action : "Sin acción automática"}</dd>
-      <dt>Tiempo</dt><dd>${isActive ? `${formatTime(simulator.stageProgress)} / ${formatTime(demoConfig.simulation.secondsPerStage)}` : "—"}</dd>
+      <dt>Tiempo acelerado</dt><dd>${isActive ? `${formatTime(simulator.stageProgress)} / ${formatTime(demoConfig.simulation.secondsPerStage)}` : "Sin etapa activa"}</dd>
+      <dt>Tiempo real configurado</dt><dd>${isActive && simulator.realStageDurationMinutes() != null ? `${simulator.realStageDurationMinutes()} min` : "No aplica"}</dd>
+      <dt>Fase del temporizador</dt><dd>${isActive ? simulator.controlTimer.phase : "En espera"}</dd>
       <dt>Condición para continuar</dt><dd>${pendingText}</dd>
       <dt>Interlock activo</dt><dd>${simulator.emergency ? "Parada de emergencia" : isActive && !simulator.canAdvance() ? pendingText : "Ninguno"}</dd>
       <dt>Próximo destino</dt><dd>${stageText(spec.destination)}</dd>
@@ -459,11 +546,21 @@ function renderStageScreen(key, spec) {
   if (!target) return;
   const stageActive = simulator.running && simulator.activeStage === spec.index;
   const equipment = spec.tags.map(tag => simulator.equipment.get(tag)).filter(Boolean);
+  const selectedEquipment = key === "fermentation"
+    ? simulator.equipment.get(simulator.activeBatch?.fermenter) || equipment[0]
+    : key === "maturation"
+      ? simulator.equipment.get(simulator.activeBatch?.maturation) || equipment[0]
+      : equipment[0];
   const alarmCount = getStageAlarmCount(spec);
   const pvIsLevel = ["water", "filter1", "filter2"].includes(key);
   const pvIsStatus = key === "packaging";
-  const pvValue = pvIsLevel ? equipment[0]?.level : pvIsStatus ? equipment[0]?.status : equipment[0]?.temperature?.toFixed?.(1);
+  const pvValue = pvIsLevel ? selectedEquipment?.level : pvIsStatus ? selectedEquipment?.status : selectedEquipment?.temperature?.toFixed?.(1);
   const pvUnit = pvIsLevel ? "%" : pvIsStatus ? "" : "°C";
+  const parameterKey = { mashing: "mashTemp", boiling: "boilTemp", cooling: "coolerOutletTemp", fermentation: "fermentationTemp", maturation: "maturationTemp" }[key];
+  const effectiveSp = parameterKey ? (simulator.activeBatch?.parameters?.[parameterKey] ?? productionDefaults[parameterKey]) : selectedEquipment?.setpoint;
+  const loopError = !pvIsStatus && Number.isFinite(Number(pvValue)) && Number.isFinite(Number(effectiveSp))
+    ? (Number(effectiveSp) - Number(pvValue)).toFixed(1)
+    : "Sin datos";
   const parallelBank = ["fermentation", "maturation"].includes(key);
   const routeEquipment = parallelBank
     ? `<div class="stage-parallel-bank" aria-label="${spec.short}: equipos en paralelo">${equipment.map(item => classicUnit(item, { compact: true, process: spec.media, showGauge: false })).join("")}</div>`
@@ -497,20 +594,20 @@ function renderStageScreen(key, spec) {
       <article class="panel loop-panel">
         <div class="panel-heading"><div><p class="eyebrow">LAZO DE CONTROL</p><h2>${spec.loop}</h2></div><span class="badge">AUTO</span></div>
         <div class="loop-values">
-          <span>PV<strong>${pvValue ?? "—"} ${pvUnit}</strong></span>
-          <span>SP<strong>${spec.sp}</strong></span>
+          <span>PV<strong>${pvValue ?? "Sin datos"} ${pvUnit}</strong></span>
+          <span>SP<strong>${effectiveSp ?? spec.sp} ${parameterKey ? "°C" : ""}</strong></span>
           <span>Salida<strong>${stageActive ? Math.min(100, 18 + simulator.stageProgress * 7) : 0} %</strong></span>
-          <span>Error<strong>${!pvIsStatus && equipment[0]?.setpoint != null ? (equipment[0].setpoint - equipment[0].temperature).toFixed(1) : "—"}</strong></span>
+          <span>Error<strong>${loopError} ${loopError !== "Sin datos" ? pvUnit : ""}</strong></span>
         </div>
         <div class="mini-trend" aria-label="Minigráfica PV y SP"><i></i><b></b></div>
       </article>
       <article class="panel">
         <div class="panel-heading"><div><p class="eyebrow">INSTRUMENTACIÓN</p><h2>Señales visibles</h2></div></div>
-        <div class="tag-matrix">${spec.instruments.map(tag => `<span><code>${tag}</code><small>${tag.startsWith("AIT-125") || tag.startsWith("PDT-125") || tag === "AIT-111" ? "VALOR DE SIMULACIÓN" : "SIMULATED"}</small></span>`).join("")}</div>
+        <div class="tag-matrix">${spec.instruments.map(tag => `<span><code>${tag}</code><small>${tag.startsWith("AIT-125") || tag.startsWith("PDT-125") || tag === "AIT-111" ? "Parámetro preliminar — pendiente de validación" : "SIMULATED"}</small></span>`).join("")}</div>
       </article>
       <article class="panel">
         <div class="panel-heading"><div><p class="eyebrow">LOTE E INTERLOCKS</p><h2>Condiciones operativas</h2></div></div>
-        <dl class="stage-state-values"><dt>Lote</dt><dd>${simulator.activeBatch?.id || "—"}</dd><dt>Receta</dt><dd>${simulator.activeBatch?.recipe || "—"}</dd><dt>Origen</dt><dd>${stageText(spec.origin)}</dd><dt>Destino</dt><dd>${stageText(spec.destination)}</dd><dt>CIP</dt><dd>${equipment.some(item => item.cipStatus !== "LIMPIO") ? "ACTIVO / PENDIENTE" : "Disponible"}</dd></dl>
+        <dl class="stage-state-values"><dt>Lote</dt><dd>${simulator.activeBatch?.id || "Sin lote"}</dd><dt>Producto</dt><dd>${simulator.activeBatch?.product || simulator.activeBatch?.recipe || "Sin producto"}</dd><dt>Origen</dt><dd>${stageText(spec.origin)}</dd><dt>Destino</dt><dd>${stageText(spec.destination)}</dd><dt>CIP</dt><dd>${equipment.some(item => item.cipStatus !== "LIMPIO") ? "ACTIVO / PENDIENTE" : "Disponible"}</dd></dl>
       </article>
     </div>
     ${key === "filter2" ? '<p class="engineering-note"><strong>INSTRUMENTACIÓN PENDIENTE DE SELECCIÓN.</strong> El tipo definitivo de filtro, ΔP y turbidez no están confirmados por el P&ID.</p>' : ""}`;
@@ -543,7 +640,7 @@ function renderEvents() {
 
 function renderBatches() {
   $("#batch-table").innerHTML = simulator.batches.map(batch => `<tr>
-    <td><code>${batch.id}</code></td><td>${new Date(batch.startedAt || Date.now()).toLocaleDateString("es-CO")}</td><td>${batch.recipe}</td><td>${batch.volume} L</td>
+    <td><code>${batch.id}</code></td><td>${new Date(batch.startedAt || batch.createdAt).toLocaleDateString("es-CO")}</td><td title="${Object.entries(batch.parameters || {}).map(([key, value]) => `${key}: ${value}`).join(" · ")}">${batch.product || batch.recipe}</td><td>${batch.volume} L</td>
     <td><span class="badge">${batch.status.toUpperCase()}</span></td>
     <td>${batch.startedAt ? new Date(batch.startedAt).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "—"}</td>
     <td><span class="badge ${batch.status.startsWith("EN ") ? "Reconocida" : "Normalizada"}">${batch.stage}</span></td>
@@ -552,29 +649,73 @@ function renderBatches() {
 }
 
 function renderRecipes() {
-  $("#recipe-cards").innerHTML = Object.entries(demoConfig.recipes).map(([name, recipe]) => `<article class="recipe-card">
-    <div class="panel-heading"><h3>${name}</h3><button class="text-button recipe-edit" data-recipe="${name}" ${!hasPermission(role, "editRecipe") ? "disabled title='Requiere rol Supervisor'" : ""}>Editar</button></div>
+  $("#recipe-cards").innerHTML = Object.entries(productProfiles).map(([name, profile]) => `<article class="recipe-card" style="--profile-color:${profile.color}">
+    <div class="product-identity"><i></i><div><small>${profile.code}</small><h3>${name}</h3><p>${profile.character}</p></div></div>
+    <p>${profile.description}</p>
     <div class="recipe-stats">
-      <span>Código<strong>${recipe.code}</strong></span><span>Volumen<strong>${recipe.volume} L</strong></span>
-      <span>Maceración<strong>${recipe.mashTemp} °C / ${recipe.mashMinimumMinutes} min</strong></span><span>pH<strong>${recipe.mashPhMin}–${recipe.mashPhMax}</strong></span>
-      <span>Cocción<strong>${recipe.boilTemp} °C / ${recipe.boilMinutes} min</strong></span><span>Fermentación<strong>${recipe.fermentationTemp} °C</strong></span>
-      <span>Densidad<strong>${recipe.initialDensity} → ${recipe.finalDensity}</strong></span><span>Maduración<strong>${recipe.maturationTemp} °C</strong></span>
-      <span>Turbidez máx.<strong>${recipe.turbidityMax} NTU</strong></span><span>Validación<strong>${recipe.validation}</strong></span>
+      <span>Adición diferenciadora<strong>${profile.manualAddition}</strong></span>
+      <span>Secuencia común<strong>${profile.sequence}</strong></span>
+      <span>Observación<strong>${profile.productionNote}</strong></span>
+      <span>Control<strong>Parámetros definidos por lote</strong></span>
     </div>
   </article>`).join("");
-  $$(".recipe-edit").forEach(button => button.addEventListener("click", () => editRecipe(button.dataset.recipe)));
 }
 
-function editRecipe(name) {
-  if (!requirePermission(role, "editRecipe", toast)) return;
-  const recipe = demoConfig.recipes[name];
-  const value = prompt(`Temperatura de maceración para ${name} (°C):`, recipe.mashTemp);
-  if (value == null) return;
-  const number = Number(value);
-  if (!Number.isFinite(number) || number < 40 || number > 90) return toast("Valor fuera del rango de simulación 40–90 °C.", "error");
-  recipe.mashTemp = number;
-  safeStore("dagoca-recipes", JSON.stringify(demoConfig.recipes));
-  renderRecipes(); toast(`Parámetro de simulación de ${name} actualizado.`);
+function parameterInput(key, value, range, context) {
+  const definition = operatingParameterDefinitions[key];
+  return `<label class="parameter-field" data-parameter="${key}">
+    <span>${definition.label}</span>
+    <span class="input-with-unit"><input name="${key}" type="number" value="${value}" min="${range.min}" max="${range.max}" step="${definition.step}" required aria-describedby="${context}-${key}-help"><b>${definition.unit}</b></span>
+    <small id="${context}-${key}-help">Habitual ${definition.usualMin}–${definition.usualMax}; ingeniería ${range.min}–${range.max} ${definition.unit}</small>
+  </label>`;
+}
+
+function renderBatchParameterFields(values = productionDefaults) {
+  $("#batch-parameter-fields").innerHTML = Object.keys(operatingParameterDefinitions)
+    .map(key => parameterInput(key, values[key], engineeringLimits[key], "batch"))
+    .join("");
+  bindParameterValidation($("#batch-form"), $("#batch-validation"));
+}
+
+function renderBaseParameterFields() {
+  const engineering = hasPermission(role, "editLimits");
+  $("#base-parameter-fields").innerHTML = `<div class="parameter-table">
+    <div class="parameter-table-head"><span>Parámetro</span><span>Valor base</span><span>Límite mín.</span><span>Límite máx.</span></div>
+    ${Object.entries(operatingParameterDefinitions).map(([key, definition]) => `<div class="parameter-table-row" data-parameter="${key}">
+      <label for="base-${key}">${definition.label}<small>${definition.unit} · ajuste de lote: Operador</small></label>
+      <input id="base-${key}" name="${key}" type="number" value="${productionDefaults[key]}" min="${engineeringLimits[key].min}" max="${engineeringLimits[key].max}" step="${definition.step}" required>
+      <input name="${key}Min" type="number" value="${engineeringLimits[key].min}" step="${definition.step}" ${engineering ? "" : "disabled"} aria-label="Límite mínimo de ${definition.label}">
+      <input name="${key}Max" type="number" value="${engineeringLimits[key].max}" step="${definition.step}" ${engineering ? "" : "disabled"} aria-label="Límite máximo de ${definition.label}">
+    </div>`).join("")}
+  </div>
+  <p class="role-note">${engineering ? "Ingeniería: los límites están habilitados." : "Supervisor: puede ajustar valores base. Los límites requieren rol Ingeniería."}</p>`;
+}
+
+function validateParameterForm(form, target) {
+  const values = Object.fromEntries(new FormData(form));
+  const errors = validateOperatingParameters(values, engineeringLimits);
+  if (role === "Operador") {
+    Object.entries(operatingParameterDefinitions).forEach(([key, definition]) => {
+      const value = Number(values[key]);
+      if (!errors[key] && (value < definition.usualMin || value > definition.usualMax)) {
+        errors[key] = `${definition.label}: el valor fuera del ajuste habitual ${definition.usualMin}–${definition.usualMax} ${definition.unit} requiere autorización de Supervisor.`;
+      }
+    });
+  }
+  form.querySelectorAll("[data-parameter]").forEach(field => field.classList.toggle("invalid", Boolean(errors[field.dataset.parameter])));
+  target.textContent = Object.values(errors)[0] || "";
+  return { valid: !Object.keys(errors).length, values: sanitizeOperatingParameters(values, productionDefaults, engineeringLimits) };
+}
+
+function bindParameterValidation(form, target) {
+  form.querySelectorAll("[data-parameter] input").forEach(input => input.addEventListener("input", () => validateParameterForm(form, target)));
+}
+
+function openProductionDefaults() {
+  if (!requirePermission(role, "editProductionDefaults", toast)) return;
+  renderBaseParameterFields();
+  $("#parameters-validation").textContent = "";
+  $("#parameters-dialog").showModal();
 }
 
 function renderAlarmSummary() {
@@ -705,6 +846,7 @@ function applyAccessControl() {
   $("#cip-config").querySelectorAll("input").forEach(input => input.disabled = !hasPermission(role, "editCip"));
   $("#settings-form").querySelectorAll("input:not([name=username]), button").forEach(control => control.disabled = !hasPermission(role, "configureEquipment"));
   $("#reset-simulation-btn").disabled = !hasPermission(role, "resetSimulation");
+  $("#production-defaults-btn").disabled = !hasPermission(role, "editProductionDefaults");
   $$("[data-mode=maintenance], [data-mode=simulation]").forEach(button => button.disabled = !hasPermission(role, "configureEquipment"));
   $("#simulation-badge").classList.toggle("active", simulator.mode === "simulation");
 }
@@ -742,7 +884,7 @@ function openEquipment(tag) {
   ].filter(Boolean).join("");
   $("#drawer-content").innerHTML = `<div class="detail-hero">
     <div class="tank-large"><i class="level" style="height:${equipment.level}%"></i></div>
-    <div><p class="detail-status">● ${equipment.status}</p><p class="detail-meta">Servicio: ${equipmentServices[equipment.tag] || equipment.service}<br>Lote: ${equipment.batchId || "Sin asignar"} · Receta: ${activeBatch?.recipe || "—"}<br>CIP: ${equipment.cipStatus} · Modo: ${simulator.mode.toUpperCase()}</p>${qualityLabel(equipment.quality)}</div>
+    <div><p class="detail-status">● ${equipment.status}</p><p class="detail-meta">Servicio: ${equipmentServices[equipment.tag] || equipment.service}<br>Lote: ${equipment.batchId || "Sin asignar"} · Producto: ${activeBatch?.product || activeBatch?.recipe || "Sin producto"}<br>CIP: ${equipment.cipStatus} · Modo: ${simulator.mode.toUpperCase()}</p>${qualityLabel(equipment.quality)}</div>
   </div>
   <div class="detail-grid">${variables.map(([label, value, unit]) => detailValue(label, `${value} ${unit}`)).join("")}${activeBatch ? detailValue("Tiempo en etapa", formatTime(simulator.stageProgress)) : ""}${detailValue("Último mantenimiento", equipment.lastMaintenance)}</div>
   ${cellarDetails}
@@ -800,8 +942,8 @@ const manualAssociations = Object.freeze({
   "TK-005": { pump: "P-003", valve: "TV-107" },
   "E-001": { pump: "P-003", valve: "TV-109" },
   ...Object.fromEntries(fermenterTags.map(tag => [tag, { valve: tankControlValve(tag) }])),
-  "TK-007": { valve: "LV-125" },
-  ...Object.fromEntries(maturationTags.map(tag => [tag, { valve: tankControlValve(tag) }]))
+  "TK-007": { pump: "P-004", valve: "LV-125" },
+  ...Object.fromEntries(maturationTags.map(tag => [tag, { pump: "P-004", valve: tankControlValve(tag) }]))
 });
 
 function associatedActuatorText(tag) {
@@ -834,6 +976,8 @@ function manualCommand(command, sourceTag) {
     if (!drive) return interlockReject("No existe un accionamiento operable asociado", source.tag, "Verificar la narrativa de control");
     if (drive.tag === "P-001" && simulator.equipment.get("TK-002").level <= 5) return interlockReject("TK-002 sin nivel de succión", "P-001 / TK-002", "Llenar TK-002 y confirmar válvula de succión");
     if (drive.tag === "P-003" && simulator.equipment.get("E-001").temperature >= 35) return interlockReject("Mosto demasiado caliente para fermentación", "E-001 / P-003", "Reducir TT-109 por debajo de 35 °C");
+    if (drive.tag === "P-004" && source.level <= 5) return interlockReject("Madurador sin nivel de succión", `P-004 / ${source.tag}`, "Confirmar nivel y ruta hacia TK-007");
+    if (drive.tag === "P-004" && !simulator.equipment.get("TK-007").available) return interlockReject("TK-007 no disponible", "P-004 / TK-007", "Confirmar limpieza, cierre y disponibilidad de TK-007");
     drive.status = drive.status === "Operando" ? "Detenida" : "Operando";
     if (drive.status === "Operando") drive.starts++;
     simulator.log(`${drive.tag} ${drive.status.toLowerCase()} por comando manual desde ${source.tag}`);
@@ -845,21 +989,27 @@ function manualCommand(command, sourceTag) {
 
 function populateBatchForm() {
   $("#batch-form [name=id]").value = `DG-${new Date().toISOString().slice(2, 10).replaceAll("-", "")}-${String(simulator.batches.length + 1).padStart(2, "0")}`;
-  $("#batch-recipe").innerHTML = Object.keys(demoConfig.recipes).map(name => `<option>${name}</option>`).join("");
+  $("#batch-recipe").innerHTML = Object.keys(productProfiles).map(name => `<option value="${name}">${name}</option>`).join("");
   const options = items => items.length ? items.map(item => `<option value="${item.tag}">${item.displayTag || item.tag} · ${item.status}</option>`).join("") : `<option value="">Sin equipos disponibles</option>`;
   $("#batch-fermenter").innerHTML = options(simulator.availableFermenters);
   $("#batch-maturation").innerHTML = options(simulator.availableMaturation);
+  renderBatchParameterFields();
   $("#batch-validation").textContent = "";
 }
 
 function submitBatch(event) {
   event.preventDefault();
+  if (!requirePermission(role, "configureBatch", toast)) return;
   const data = Object.fromEntries(new FormData(event.currentTarget));
+  const validation = validateParameterForm(event.currentTarget, $("#batch-validation"));
+  if (!validation.valid) return;
+  data.parameters = validation.values;
+  data.recipe = data.product;
   data.operator = username;
   try {
     simulator.createBatch(data);
     $("#batch-dialog").close();
-    renderAll(); toast(`Lote ${data.id} creado y destinos reservados.`);
+    renderAll(); toast(`Lote ${data.id} creado con producto y parámetros congelados.`);
   } catch (error) { $("#batch-validation").textContent = error.message; }
 }
 
@@ -933,6 +1083,38 @@ function initControls() {
   $("#emergency-btn").addEventListener("click", () => { if (confirm("CONFIRMAR PARADA DE EMERGENCIA. Se detendrán bombas y agitadores, y se cerrarán actuadores críticos.")) simulator.triggerEmergency(); });
   $("#new-batch-btn").addEventListener("click", () => { populateBatchForm(); $("#batch-dialog").showModal(); });
   $("#batch-form").addEventListener("submit", submitBatch);
+  $("#production-defaults-btn").addEventListener("click", openProductionDefaults);
+  $("#parameters-form").addEventListener("submit", event => {
+    event.preventDefault();
+    if (!requirePermission(role, "editProductionDefaults", toast)) return;
+    const values = Object.fromEntries(new FormData(event.currentTarget));
+    if (hasPermission(role, "editLimits")) {
+      const candidateLimits = Object.fromEntries(Object.keys(operatingParameterDefinitions).map(key => [key, {
+        min: values[`${key}Min`],
+        max: values[`${key}Max`]
+      }]));
+      engineeringLimits = sanitizeEngineeringLimits(candidateLimits);
+      simulator.config.engineeringLimits = engineeringLimits;
+      safeStore("dagoca-engineering-limits", JSON.stringify(engineeringLimits));
+    }
+    const errors = validateOperatingParameters(values, engineeringLimits);
+    if (Object.keys(errors).length) {
+      $("#parameters-validation").textContent = Object.values(errors)[0];
+      return;
+    }
+    productionDefaults = sanitizeOperatingParameters(values, baseOperatingParameters, engineeringLimits);
+    safeStore("dagoca-production-defaults", JSON.stringify(productionDefaults));
+    $("#parameters-dialog").close();
+    toast("Parámetros base guardados para órdenes futuras.");
+  });
+  $("#reset-production-defaults").addEventListener("click", () => {
+    if (!requirePermission(role, "resetProductionDefaults", toast)) return;
+    if (!confirm("¿Restablecer los valores base de producción? Los lotes existentes no cambiarán.")) return;
+    productionDefaults = sanitizeOperatingParameters(baseOperatingParameters, baseOperatingParameters, engineeringLimits);
+    safeStore("dagoca-production-defaults", JSON.stringify(productionDefaults));
+    renderBaseParameterFields();
+    toast("Valores base restablecidos.");
+  });
   $("#role-select").value = role;
   $("#role-select").addEventListener("change", event => { role = event.target.value; safeStore("dagoca-role", role); renderAll(); toast(`Rol cambiado a ${role}.`); });
   $("#theme-toggle").addEventListener("click", () => {
@@ -1013,10 +1195,8 @@ function beep() {
 }
 
 function init() {
-  const savedRecipes = (() => { try { return JSON.parse(localStorage.getItem("dagoca-recipes")); } catch { return null; } })();
-  if (savedRecipes) Object.entries(savedRecipes).forEach(([name, values]) => {
-    if (demoConfig.recipes[name]) Object.assign(demoConfig.recipes[name], values);
-  });
+  // Las recetas antiguas permanecen referenciadas en lotes históricos; no se combinan
+  // con los perfiles comerciales activos ni con los parámetros base sanitizados.
   document.documentElement.dataset.theme = localStorage.getItem("dagoca-theme-v2") || "light";
   const settings = PersistentState.read("dagoca-config", {});
   const savedCip = PersistentState.read("dagoca-cip", {});

@@ -13,6 +13,7 @@ const alarmCatalog = [
   ["Alta", "FLT-P-001", "Falla de bomba P-001", "P-001"],
   ["Alta", "FLT-P-002", "Falla de bomba P-002", "P-002"],
   ["Alta", "FLT-P-003", "Falla de bomba P-003", "P-003"],
+  ["Alta", "FLT-P-004", "Falla de bomba P-004", "P-004"],
   ["Alta", "TAH-105", "Temperatura alta de maceración", "TK-003"],
   ["Media", "TAL-105", "Temperatura baja de maceración", "TK-003"],
   ["Alta", "TAH-107", "Temperatura alta de cocción", "TK-005"],

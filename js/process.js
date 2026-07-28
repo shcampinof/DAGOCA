@@ -1,4 +1,4 @@
-const STORAGE_SCHEMA_VERSION = 2;
+const STORAGE_SCHEMA_VERSION = 3;
 const fermenterTags = Object.freeze(["TK-006A", "TK-006B", "TK-006C", "TK-006D", "TK-006E"]);
 const maturationTags = Object.freeze(["TK-008A", "TK-008B", "TK-008C", "TK-008D", "TK-008E", "TK-008F", "TK-008G", "TK-008H", "TK-008I", "TK-008J"]);
 
@@ -100,8 +100,25 @@ class Sensor {
 }
 
 class Batch {
-  constructor({ id, recipe, volume, fermenter, maturation, operator = "Operador 01" }) {
-    Object.assign(this, { id, recipe, volume: Number(volume), fermenter, maturation, operator, stage: "Preparado", stageIndex: -1, startedAt: null, elapsed: 0, status: "Programado", createdAt: new Date().toISOString() });
+  constructor({ id, product, recipe, parameters, parameterLimits, volume, fermenter, maturation, operator = "Operador 01" }) {
+    const commercialProfile = product || recipe;
+    Object.assign(this, {
+      id,
+      product: commercialProfile,
+      recipe: recipe || commercialProfile,
+      parameters: cloneOperatingParameters(parameters, parameterLimits),
+      volume: Number(volume),
+      fermenter,
+      maturation,
+      operator,
+      stage: "Preparado",
+      stageIndex: -1,
+      startedAt: null,
+      elapsed: 0,
+      status: "Programado",
+      createdAt: new Date().toISOString(),
+      sequenceId: "DAGOCA-BATCH-V1"
+    });
   }
 }
 
@@ -150,6 +167,7 @@ class ScadaSimulator {
     this.emergency = false;
     this.stepMode = false;
     this.stageProgress = 0;
+    this.controlTimer = { phase: "En espera", elapsedSimulationSeconds: 0, realDurationMinutes: 0 };
     this.conditions = {};
     this.events = storage.read("dagoca-events", []);
     const savedBatches = storage.read("dagoca-batches", []);
@@ -157,7 +175,17 @@ class ScadaSimulator {
     const storedSchemaVersion = Number(storedSchemaMarker == null && savedBatches.length ? 1 : storedSchemaMarker ?? STORAGE_SCHEMA_VERSION);
     let storageMigrated = storedSchemaVersion < STORAGE_SCHEMA_VERSION;
     this.batches = savedBatches.map(item => {
-      const batch = Object.assign(new Batch(item), item);
+      const batch = Object.assign(new Batch({
+        ...item,
+        product: item.product || item.recipe,
+        parameters: sanitizeOperatingParameters(item.parameters, baseOperatingParameters, this.config.engineeringLimits),
+        parameterLimits: this.config.engineeringLimits
+      }), item);
+      batch.product ||= batch.recipe;
+      batch.recipe ||= batch.product;
+      batch.parameters = cloneOperatingParameters(batch.parameters, this.config.engineeringLimits);
+      batch.volume = Number.isFinite(Number(batch.volume)) && Number(batch.volume) >= 50 && Number(batch.volume) <= 600 ? Number(batch.volume) : 481;
+      batch.sequenceId = "DAGOCA-BATCH-V1";
       const legacy = { Preparado: "Programado", "En proceso": "EN PREPARACIÓN", Completado: "FINALIZADO", Cancelado: "CANCELADO" };
       batch.status = legacy[batch.status] || batch.status;
       const legacyDestinations = {
@@ -166,7 +194,8 @@ class ScadaSimulator {
       };
       batch.fermenter = legacyDestinations[batch.fermenter] || batch.fermenter;
       batch.maturation = legacyDestinations[batch.maturation] || batch.maturation;
-      const oldStageIndex = Number(batch.stageIndex ?? -1);
+      const parsedStageIndex = Number(batch.stageIndex ?? -1);
+      const oldStageIndex = Number.isInteger(parsedStageIndex) ? parsedStageIndex : -1;
       if (storedSchemaVersion < 2 && !["FINALIZADO", "Completado", "CANCELADO", "Cancelado"].includes(batch.status)) {
         batch.stageIndex = oldStageIndex === 7 || oldStageIndex === 8 ? 7 : oldStageIndex;
         if (oldStageIndex === 7 || oldStageIndex === 8) {
@@ -183,7 +212,7 @@ class ScadaSimulator {
     if (storageMigrated) {
       storage.write("dagoca-batches", this.batches);
       storage.write("dagoca-storage-schema", STORAGE_SCHEMA_VERSION);
-      this.events.unshift({ time: new Date().toISOString(), message: "Estado local migrado a secuencia v2: Fermentación → Maduración → Filtrado final" });
+      this.events.unshift({ time: new Date().toISOString(), message: "Estado local migrado a esquema v3: perfiles comerciales y parámetros operacionales por lote" });
       this.events = this.events.slice(0, 30);
       storage.write("dagoca-events", this.events);
     } else if (storedSchemaMarker == null) {
@@ -237,7 +266,7 @@ class ScadaSimulator {
       }),
       new Equipment("EMB-01", "Embotellado", "bottling"),
       new Equipment("CIP-01", "Estación CIP", "cip"),
-      new Pump("P-000"), new Pump("P-001"), new Pump("P-002"), new Pump("P-003"),
+      new Pump("P-000"), new Pump("P-001"), new Pump("P-002"), new Pump("P-003"), new Pump("P-004"),
       new Equipment("AG1", "Agitador TK-003", "agitator", { status: "Detenido" }),
       new Valve("LV-100"), new Valve("LV-104"), new Valve("TV-105"), new Valve("TV-107"), new Valve("TV-109"), new Valve("LV-108"), new Valve("LV-111"),
       new Valve("LV-125"), new Valve("TV-113"), new Valve("TV-116"), new Valve("TV-119"), new Valve("TV-122")
@@ -248,7 +277,7 @@ class ScadaSimulator {
         new Sensor(index ? "LSL-110" : "LSL-112", "Nivel bajo", "%"),
         new Sensor(index ? "LSH-108" : "LSH-111", "Nivel alto", "%"),
         new Sensor("TT-111", "Temperatura", "°C"), new Sensor("TC-111", "Control de temperatura", "°C"),
-        new Sensor("PT-111", "Presión", "bar"), new Sensor("AIT-111", "Densidad", "SG", "VALOR DE SIMULACIÓN")
+        new Sensor("PT-111", "Presión", "bar"), new Sensor("AIT-111", "Densidad", "SG", "PARÁMETRO PRELIMINAR — PENDIENTE DE VALIDACIÓN")
       ];
       items.push(new Tank(tag, `Fermentador ${String.fromCharCode(65 + index)}`, {
         density: 1.05, pressure: 0, temperature: 18, setpoint: 18, instruments
@@ -309,7 +338,14 @@ class ScadaSimulator {
     };
     Object.entries(saved).forEach(([tag, state]) => {
       const equipment = this.equipment.get(legacyTags[tag] || tag);
-      if (equipment) Object.assign(equipment, state);
+      if (!equipment || !state || typeof state !== "object") return;
+      const safe = { ...state };
+      ["level", "temperature", "pressure", "ph", "density", "turbidity", "operatingHours", "starts"].forEach(key => {
+        if (key in safe && !Number.isFinite(Number(safe[key]))) delete safe[key];
+        else if (key in safe) safe[key] = Number(safe[key]);
+      });
+      if ("level" in safe) safe.level = Math.max(0, Math.min(100, safe.level));
+      Object.assign(equipment, safe);
     });
   }
 
@@ -346,14 +382,52 @@ class ScadaSimulator {
     const tm = this.equipment.get(data.maturation);
     if (!tf?.available) throw new Error("El fermentador no está disponible, limpio y cerrado.");
     if (!tm?.available) throw new Error("El tanque de maduración no está disponible, limpio y cerrado.");
-    const batch = new Batch(data);
+    if (!productProfiles[data.product || data.recipe]) throw new Error("Seleccione uno de los tres perfiles de producto activos.");
+    const limits = this.config.engineeringLimits || sanitizeEngineeringLimits();
+    const errors = validateOperatingParameters(data.parameters || data, limits);
+    if (Object.keys(errors).length) throw new Error(Object.values(errors)[0]);
+    const batch = new Batch({
+      ...data,
+      product: data.product || data.recipe,
+      recipe: data.product || data.recipe,
+      parameters: sanitizeOperatingParameters(data.parameters || data, baseOperatingParameters, limits),
+      parameterLimits: limits
+    });
     this.batches.unshift(batch);
     tf.batchId = batch.id; tf.status = "Reservado";
     tm.batchId = batch.id; tm.status = "Reservado";
-    this.log(`Lote ${batch.id} creado · ${batch.recipe}`);
+    this.log(`Lote ${batch.id} creado · ${batch.product} · SP maceración ${batch.parameters.mashTemp} °C · cocción ${batch.parameters.boilTemp} °C · E-001 ${batch.parameters.coolerOutletTemp} °C · maduración ${batch.parameters.maturationDays} días`);
     this.persist();
     this.bus.emit("batch", batch);
     return batch;
+  }
+
+  updateBatchProduct(batchId, product) {
+    const batch = this.batches.find(item => item.id === batchId);
+    if (!batch) throw new Error("Lote no encontrado.");
+    if (batch.startedAt || batch.stageIndex >= 0) throw new Error("El producto queda bloqueado al iniciar el lote.");
+    if (!productProfiles[product]) throw new Error("Perfil de producto no válido.");
+    batch.product = product;
+    batch.recipe = product;
+    this.persist();
+    return batch;
+  }
+
+  effectiveSetpoint(tag) {
+    const parameters = this.activeBatch?.parameters || baseOperatingParameters;
+    const mapping = {
+      "TT-105": "mashTemp",
+      "TT-107": "boilTemp",
+      "TT-109": "coolerOutletTemp",
+      "TT-111": "fermentationTemp",
+      "TT-113": "maturationTemp",
+      "TT-116": "maturationTemp",
+      "TT-119": "maturationTemp",
+      "TT-122": "maturationTemp"
+    };
+    const profile = Object.entries(newTankInstrumentProfiles).find(([, item]) => tag === `TT-${item.temperature}`);
+    const key = profile ? (profile[0].startsWith("TK-006") ? "fermentationTemp" : "maturationTemp") : mapping[tag];
+    return key ? parameters[key] : this.config.tags[tag]?.setpoint;
   }
 
   start() {
@@ -370,6 +444,7 @@ class ScadaSimulator {
     if (current && (!current.clean || current.status === "En limpieza")) return this.reject(`${current.tag} está sucio o en limpieza. Interlock activo.`);
     this.running = true;
     this.stageProgress = 0;
+    this.controlTimer = { phase: "Aceleración de etapa", elapsedSimulationSeconds: 0, realDurationMinutes: this.realStageDurationMinutes() };
     this.applyStage();
     this.log(`Secuencia iniciada en ${this.currentStep().name}`);
     this.startTimer();
@@ -413,6 +488,7 @@ class ScadaSimulator {
     this.activeBatch.stageIndex = 0;
     this.activeBatch.stage = this.steps[0].name;
     this.stageProgress = 0;
+    this.controlTimer = { phase: "Aceleración de etapa", elapsedSimulationSeconds: 0, realDurationMinutes: this.realStageDurationMinutes() };
     this.conditions = {};
     this.applyStage();
     this.log(`Secuencia del lote ${this.activeBatch.id} reiniciada`);
@@ -433,6 +509,7 @@ class ScadaSimulator {
     if (!this.running || !this.activeBatch || this.emergency) return;
     this.activeBatch.elapsed++;
     this.stageProgress++;
+    this.updateControlTimer();
     this.updateProcessValues();
     this.updateConditions();
     if (this.mode === "auto" && !this.stepMode && this.canAdvance()) this.advance();
@@ -442,9 +519,16 @@ class ScadaSimulator {
   updateConditions() {
     const ratio = this.stageProgress / this.config.simulation.secondsPerStage;
     const index = this.activeStage;
+    const parameters = this.activeBatch?.parameters || baseOperatingParameters;
+    const timeThreshold = index === 2
+      ? (parameters.mashMinutes === 0 ? .58 : .85)
+      : index === 4
+        ? (parameters.boilMinutes === 0 ? .58 : .78)
+        : .72;
     this.conditions = {
-      timeMinimum: ratio >= .72,
+      timeMinimum: ratio >= timeThreshold,
       stableTemperature: ratio >= .58,
+      postBoilWaitComplete: index !== 4 || ratio >= (parameters.postBoilWaitMinutes === 0 ? timeThreshold : .92),
       phInRecipe: index !== 2 || ratio >= .48,
       conversionConfirmed: index !== 2 || ratio >= .68,
       coolerOk: index !== 5 || (ratio >= .62 && this.equipment.get("E-001").temperature < 35),
@@ -465,7 +549,7 @@ class ScadaSimulator {
     const c = this.conditions;
     const rules = {
       0: c.cleanComplete, 1: c.timeMinimum, 2: c.timeMinimum && c.stableTemperature && c.phInRecipe && c.conversionConfirmed,
-      3: c.timeMinimum && c.routeReady, 4: c.timeMinimum && c.stableTemperature,
+      3: c.timeMinimum && c.routeReady, 4: c.timeMinimum && c.stableTemperature && c.postBoilWaitComplete,
       5: c.coolerOk && c.destinationAvailable,
       6: c.timeMinimum && c.stableTemperature && c.pressureOk && c.densityStable && c.maturationAvailable,
       7: c.timeMinimum && c.stableTemperature && c.finalFilterAvailable,
@@ -496,6 +580,7 @@ class ScadaSimulator {
     if (!step) return "secuencia sin iniciar";
     const checks = [
       ["timeMinimum", "tiempo mínimo no cumplido"], ["stableTemperature", "temperatura aún no estable"],
+      ["postBoilWaitComplete", "espera posterior a cocción no cumplida"],
       ["phInRecipe", "pH fuera de receta"], ["conversionConfirmed", "conversión de almidón no confirmada"],
       ["coolerOk", "temperatura de salida de E-001 igual o superior a 35 °C"], ["destinationAvailable", "fermentador de destino no disponible"],
       ["maturationAvailable", "tanque de maduración no disponible"],
@@ -512,7 +597,7 @@ class ScadaSimulator {
   relevantConditionKeys() {
     return {
       0: ["cleanComplete"], 1: ["timeMinimum"], 2: ["timeMinimum", "stableTemperature", "phInRecipe", "conversionConfirmed"],
-      3: ["timeMinimum", "routeReady"], 4: ["timeMinimum", "stableTemperature"], 5: ["coolerOk", "destinationAvailable"],
+      3: ["timeMinimum", "routeReady"], 4: ["timeMinimum", "stableTemperature", "postBoilWaitComplete"], 5: ["coolerOk", "destinationAvailable"],
       6: ["timeMinimum", "stableTemperature", "pressureOk", "densityStable", "maturationAvailable"],
       7: ["timeMinimum", "stableTemperature", "finalFilterAvailable"],
       8: ["routeReady", "turbidityOk", "packagingAvailable"],
@@ -521,6 +606,21 @@ class ScadaSimulator {
   }
 
   currentStep() { return this.steps[this.activeStage]; }
+  realStageDurationMinutes() {
+    const p = this.activeBatch?.parameters || baseOperatingParameters;
+    return { 2: p.mashMinutes, 4: p.boilMinutes + p.postBoilWaitMinutes, 7: p.maturationDays * 1440 }[this.activeStage] || null;
+  }
+
+  updateControlTimer() {
+    const ratio = this.stageProgress / this.config.simulation.secondsPerStage;
+    const p = this.activeBatch?.parameters || baseOperatingParameters;
+    let phase = "Aceleración de etapa";
+    let realDurationMinutes = this.realStageDurationMinutes();
+    if (this.activeStage === 2) phase = ratio < .58 ? "Alcanzando SP" : "Permanencia de maceración";
+    if (this.activeStage === 4) phase = ratio < .58 ? "Alcanzando SP" : ratio < .78 ? "Tiempo de cocción" : "Espera posterior";
+    if (this.activeStage === 4 && ratio >= .78) realDurationMinutes = p.postBoilWaitMinutes;
+    this.controlTimer = { phase, elapsedSimulationSeconds: this.stageProgress, realDurationMinutes };
+  }
   currentEquipment() {
     const step = this.currentStep();
     if (!step) return null;
@@ -531,6 +631,16 @@ class ScadaSimulator {
   }
 
   applyStage() {
+    const parameters = this.activeBatch?.parameters;
+    if (parameters) {
+      this.equipment.get("TK-003").setpoint = parameters.mashTemp;
+      this.equipment.get("TK-005").setpoint = parameters.boilTemp;
+      this.equipment.get("E-001").setpoint = parameters.coolerOutletTemp;
+      const fermenter = this.equipment.get(this.activeBatch.fermenter);
+      const maturation = this.equipment.get(this.activeBatch.maturation);
+      if (fermenter) fermenter.setpoint = parameters.fermentationTemp;
+      if (maturation) maturation.setpoint = parameters.maturationTemp;
+    }
     [...this.equipment.values()].forEach(e => {
       if (e.status === "Operando") e.status = e.batchId ? "Reservado" : "Disponible";
     });
@@ -550,7 +660,7 @@ class ScadaSimulator {
       5: ["P-003", "TV-109"],
       6: [tankControlValve(this.activeBatch?.fermenter)].filter(Boolean),
       7: [tankControlValve(this.activeBatch?.maturation)].filter(Boolean),
-      8: ["LV-125"],
+      8: ["P-004", "LV-125"],
       9: ["LV-125"]
     }[this.activeStage] || [];
     activeActuators.forEach(tag => {
@@ -594,7 +704,7 @@ class ScadaSimulator {
   }
 
   updateProcessValues() {
-    const recipe = this.config.recipes[this.activeBatch.recipe];
+    const parameters = this.activeBatch.parameters;
     const ratio = Math.min(1, this.stageProgress / this.config.simulation.secondsPerStage);
     const current = this.currentEquipment();
     if (current && current.type !== "bottling") current.level = Math.round(this.activeStage === 9 ? 90 * (1 - ratio) : Math.min(92, 12 + ratio * 80));
@@ -611,23 +721,28 @@ class ScadaSimulator {
     const t3 = this.equipment.get("TK-003");
     const t5 = this.equipment.get("TK-005");
     const ic1 = this.equipment.get("E-001");
-    t3.temperature = +(20 + (recipe.mashTemp - 20) * (this.activeStage >= 2 ? Math.min(1, ratio * 1.6) : 0) + jitter(.3)).toFixed(1);
-    t3.ph = +(recipe.mashPh + jitter(.05)).toFixed(2);
-    t5.temperature = +(20 + (recipe.boilTemp - 20) * (this.activeStage >= 4 ? Math.min(1, ratio * 1.7) : 0) + jitter(.4)).toFixed(1);
-    ic1.temperature = +(80 - (80 - recipe.coolerMax + 1) * (this.activeStage >= 5 ? Math.min(1, ratio * 1.8) : 0) + jitter(.3)).toFixed(1);
+    t3.setpoint = parameters.mashTemp;
+    t5.setpoint = parameters.boilTemp;
+    ic1.setpoint = parameters.coolerOutletTemp;
+    t3.temperature = +(20 + (parameters.mashTemp - 20) * (this.activeStage >= 2 ? Math.min(1, ratio * 1.6) : 0) + jitter(.3)).toFixed(1);
+    t3.ph = +(5.3 + jitter(.05)).toFixed(2);
+    t5.temperature = +(20 + (parameters.boilTemp - 20) * (this.activeStage >= 4 ? Math.min(1, ratio * 1.7) : 0) + jitter(.4)).toFixed(1);
+    ic1.temperature = +(80 - (80 - parameters.coolerOutletTemp + 1) * (this.activeStage >= 5 ? Math.min(1, ratio * 1.8) : 0) + jitter(.3)).toFixed(1);
     const tf = this.equipment.get(this.activeBatch.fermenter);
     const tm = this.equipment.get(this.activeBatch.maturation);
     if (this.activeStage >= 6) {
-      tf.temperature = +(recipe.fermentationTemp + jitter(.25)).toFixed(1);
-      tf.pressure = +(.8 + (recipe.fermentationPressure - .8) * ratio + jitter(.03)).toFixed(2);
-      tf.density = +(1.05 - (1.05 - recipe.finalDensity) * ratio + jitter(.0006)).toFixed(3);
+      tf.setpoint = parameters.fermentationTemp;
+      tf.temperature = +(parameters.fermentationTemp + jitter(.25)).toFixed(1);
+      tf.pressure = +(.8 + (1.15 - .8) * ratio + jitter(.03)).toFixed(2);
+      tf.density = +(1.05 - (1.05 - 1.012) * ratio + jitter(.0006)).toFixed(3);
       tf.densitySamples.push(tf.density);
       tf.densitySamples = tf.densitySamples.slice(-20);
     }
     if (this.activeStage >= 7) {
-      tm.temperature = +(recipe.maturationTemp + jitter(.18)).toFixed(1);
-      tm.pressure = +(recipe.maturationPressure + jitter(.03)).toFixed(2);
-      tm.turbidity = +(2.4 - (2.4 - recipe.turbidityMax + .15) * ratio + jitter(.05)).toFixed(2);
+      tm.setpoint = parameters.maturationTemp;
+      tm.temperature = +(parameters.maturationTemp + jitter(.18)).toFixed(1);
+      tm.pressure = +(1.2 + jitter(.03)).toFixed(2);
+      tm.turbidity = +(2.4 - (2.4 - .9 + .15) * ratio + jitter(.05)).toFixed(2);
     }
     if (this.activeStage >= 8) this.equipment.get("TK-007").turbidity = +(2 - 1.35 * ratio + jitter(.05)).toFixed(2);
   }
@@ -688,5 +803,5 @@ class ScadaSimulator {
     storage.write("dagoca-equipment", equipmentState);
   }
   emitState() { this.updateStepStatus(); this.persist(); this.bus.emit("state", this.snapshot()); }
-  snapshot() { return { running: this.running, emergency: this.emergency, mode: this.mode, activeBatch: this.activeBatch, activeStage: this.activeStage, stageProgress: this.stageProgress, conditions: this.conditions }; }
+  snapshot() { return { running: this.running, emergency: this.emergency, mode: this.mode, activeBatch: this.activeBatch, activeStage: this.activeStage, stageProgress: this.stageProgress, controlTimer: this.controlTimer, conditions: this.conditions }; }
 }

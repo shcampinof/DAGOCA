@@ -52,9 +52,10 @@ class TrendManager {
   datasets(meta, range = 15) {
     const points = this.filtered(this.selectedTag, range);
     const times = points.map(point => point.x);
+    const effectiveSetpoint = this.simulator.effectiveSetpoint(this.selectedTag);
     return [
       { label: this.selectedTag, data: points, borderColor: "#4ed29d", backgroundColor: "rgba(78,210,157,.08)", borderWidth: 2, pointRadius: 0, fill: true, tension: .28 },
-      { label: "Setpoint", data: times.map(x => ({ x, y: meta.setpoint })), borderColor: "#5aa9ff", borderWidth: 1, pointRadius: 0, borderDash: [5, 5] },
+      { label: "SP efectivo del lote", data: points.map(point => ({ x: point.x, y: point.sp ?? effectiveSetpoint })), borderColor: "#5aa9ff", borderWidth: 1, pointRadius: 0, borderDash: [5, 5] },
       { label: "Límite alto", data: times.map(x => ({ x, y: meta.high })), borderColor: "#ff626b", borderWidth: 1, pointRadius: 0, borderDash: [3, 5] },
       { label: "Límite bajo", data: times.map(x => ({ x, y: meta.low })), borderColor: "#f2c94c", borderWidth: 1, pointRadius: 0, borderDash: [3, 5] }
     ];
@@ -85,7 +86,7 @@ class TrendManager {
       const equipmentValue = this.readSimulatorValue(tag);
       if (equipmentValue != null) target = equipmentValue;
       const next = last + (target - last) * .3 + (Math.random() - .5) * (meta.high - meta.low) * .012;
-      source.push({ x: Date.now(), y: +next.toFixed(meta.unit === "SG" ? 3 : 2) });
+      source.push({ x: Date.now(), y: +next.toFixed(meta.unit === "SG" ? 3 : 2), sp: this.simulator.effectiveSetpoint(tag), batchId: this.simulator.activeBatch?.id || null });
       if (source.length > 1600) source.shift();
     });
     const snapshot = {};
@@ -138,14 +139,22 @@ class TrendManager {
     const meta = this.config.tags[this.selectedTag];
     const batch = this.simulator.activeBatch;
     const rows = [
-      ["timestamp", "lote", "receta", "etapa", "tag", "valor", "unidad", "calidad", "modo", "alarma"],
-      ...this.filtered(this.selectedTag, range).map(point => [
-        new Date(point.x).toISOString(), batch?.id || "—", batch?.recipe || "—",
-        batch?.stage || "EN ESPERA", this.selectedTag, point.y, meta.unit,
-        "SIMULATED", this.simulator.mode.toUpperCase(), "NO"
-      ])
+      ["timestamp", "lote", "producto", "etapa", "tag", "valor", "sp_efectivo", "unidad", "parametros_lote", "calidad", "modo", "alarma"],
+      ...this.filtered(this.selectedTag, range).map(point => {
+        const rowBatch = this.simulator.batches.find(item => item.id === point.batchId) || batch;
+        return [
+          new Date(point.x).toISOString(), rowBatch?.id || "—", rowBatch?.product || rowBatch?.recipe || "—",
+          rowBatch?.stage || "EN ESPERA", this.selectedTag, point.y, point.sp ?? this.simulator.effectiveSetpoint(this.selectedTag), meta.unit,
+          JSON.stringify(rowBatch?.parameters || {}),
+          "SIMULATED", this.simulator.mode.toUpperCase(), "NO"
+        ];
+      })
     ];
-    const csv = rows.map(row => row.join(",")).join("\n");
+    const csvCell = value => {
+      const text = String(value ?? "");
+      return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+    };
+    const csv = rows.map(row => row.map(csvCell).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const anchor = Object.assign(document.createElement("a"), { href: url, download: `DAGOCA_${this.selectedTag}.csv` });
     anchor.click(); URL.revokeObjectURL(url);

@@ -45,7 +45,7 @@
         <button class="nav-item" data-view="packaging"><span>EM</span>Embotellado</button>
         <button class="nav-item" data-view="cip"><span>CP</span>CIP y limpieza</button>
         <button class="nav-item" data-view="batches"><span>LT</span>Lotes</button>
-        <button class="nav-item" data-view="recipes"><span>RC</span>Recetas</button>
+        <button class="nav-item" data-view="recipes"><span>PR</span>Productos y sabores</button>
         <button class="nav-item" data-view="trends"><span>HI</span>Históricos</button>
         <button class="nav-item" data-view="alarms"><span>AL</span>Alarmas <b id="alarm-count">0</b></button>
         <button class="nav-item" data-view="maintenance"><span>MT</span>Mantenimiento</button>
@@ -160,18 +160,18 @@
             <article class="panel">
               <div class="panel-heading"><div><p class="eyebrow">PRODUCCIÓN</p><h2>Gestión de lotes</h2></div><div class="batch-actions"><button class="btn" id="export-batch-btn">Exportar reporte</button><button class="btn primary" id="new-batch-btn">＋ Crear lote</button></div></div>
               <div class="table-wrap"><table>
-                <thead><tr><th>Lote</th><th>Fecha</th><th>Receta</th><th>Volumen</th><th>Estado</th><th>Inicio</th><th>Etapa</th><th>Transcurrido</th><th>Destino</th><th>Operador</th></tr></thead>
+                <thead><tr><th>Lote</th><th>Fecha</th><th>Producto</th><th>Volumen</th><th>Estado</th><th>Inicio</th><th>Etapa</th><th>Transcurrido</th><th>Destino</th><th>Operador</th></tr></thead>
                 <tbody id="batch-table"></tbody>
               </table></div>
             </article>
           </div>
         </section>
 
-        <section class="view" id="view-recipes" data-title="Recetas">
+        <section class="view" id="view-recipes" data-title="Productos y sabores">
           <div class="panel">
-            <div class="panel-heading"><div><p class="eyebrow">CONFIGURACIÓN DE PRODUCCIÓN</p><h2>Recetas</h2></div></div>
+            <div class="panel-heading"><div><p class="eyebrow">PERFILES COMERCIALES</p><h2>Productos y sabores</h2></div><button class="btn" id="production-defaults-btn">Parámetros base</button></div>
             <div class="recipe-grid" id="recipe-cards"></div>
-            <p class="engineering-note">Los datos identificados como VALOR DE SIMULACIÓN requieren validación de ingeniería.</p>
+            <p class="engineering-note">Los tres perfiles comparten la secuencia DAGOCA-BATCH-V1, los interlocks y la estructura de control. Las adiciones diferenciadoras son manuales.</p>
           </div>
         </section>
 
@@ -249,12 +249,12 @@
               </form>
             </article>
             <article class="panel engineering-diagnostics" id="engineering-diagnostics" hidden></article>
-            <article class="panel danger-panel"><div class="panel-heading"><div><p class="eyebrow">DATOS LOCALES</p><h2>Restablecer simulación</h2></div></div><p>Elimina lotes, alarmas, eventos, recetas y configuración guardada.</p><button class="btn" id="reset-simulation-btn">Restablecer simulación</button></article>
+            <article class="panel danger-panel"><div class="panel-heading"><div><p class="eyebrow">DATOS LOCALES</p><h2>Restablecer simulación</h2></div></div><p>Elimina lotes, alarmas, eventos y configuración local del prototipo.</p><button class="btn" id="reset-simulation-btn">Restablecer simulación</button></article>
           </div>
         </section>
 
         <section class="view" id="view-about" data-title="Acerca del sistema">
-          <article class="panel about-panel"><p class="eyebrow">DAGOCA</p><h2>Sistema de Supervisión y Control de Cervecería Artesanal</h2><p>Aplicación académica para representar la secuencia de fabricación, instrumentación, gestión de alarmas y trazabilidad de lotes.</p><dl><dt>Versión</dt><dd>1.3</dd><dt>Calidad de señales</dt><dd>SIMULATED</dd><dt>Conexión PLC</dt><dd>No configurada</dd><dt>Persistencia</dt><dd>localStorage · esquema v2</dd></dl><p class="engineering-note">No sustituye protecciones mecánicas, circuitos de seguridad ni validación de ingeniería.</p></article>
+          <article class="panel about-panel"><p class="eyebrow">DAGOCA</p><h2>Sistema de Supervisión y Control de Cervecería Artesanal</h2><p>Prototipo profesional de supervisión y control para una línea de elaboración de cerveza por lotes.</p><dl><dt>Versión</dt><dd>1.4</dd><dt>Calidad de señales</dt><dd>SIMULATED · señales generadas por software</dd><dt>Conexión PLC</dt><dd>No configurada</dd><dt>Persistencia</dt><dd>localStorage · esquema v3</dd></dl><p class="engineering-note">No controla una planta real ni sustituye protecciones mecánicas, circuitos de seguridad o validación de ingeniería.</p></article>
         </section>
       </main>
     </div>
@@ -268,16 +268,30 @@
 
   <dialog id="batch-dialog">
     <form method="dialog" id="batch-form">
-      <div class="dialog-head"><div><p class="eyebrow">NUEVA ORDEN</p><h2>Crear lote simulado</h2></div><button value="cancel" class="icon-button" aria-label="Cerrar">×</button></div>
+      <div class="dialog-head"><div><p class="eyebrow">PRODUCCIÓN POR LOTES</p><h2>Nueva orden de lote</h2><p class="dialog-intro">Seleccione el producto y confirme las consignas que quedarán congeladas en el lote.</p></div><button value="cancel" class="icon-button" aria-label="Cerrar">×</button></div>
       <div class="form-grid">
         <label>ID del lote<input name="id" required></label>
-        <label>Receta<select name="recipe" id="batch-recipe"></select></label>
+        <label>Producto / sabor<select name="product" id="batch-recipe"></select></label>
         <label>Volumen objetivo (L)<input name="volume" type="number" min="50" max="600" value="481" required></label>
         <label>Fermentador<select name="fermenter" id="batch-fermenter"></select></label>
         <label>Tanque de maduración<select name="maturation" id="batch-maturation"></select></label>
       </div>
+      <fieldset class="parameter-fieldset">
+        <legend>Parámetros operacionales del lote</legend>
+        <div class="parameter-form-grid" id="batch-parameter-fields"></div>
+        <p class="simulation-note">Los valores representan duraciones reales de proceso. La duración acelerada del simulador se configura por separado en Ingeniería.</p>
+      </fieldset>
       <p class="validation-message" id="batch-validation"></p>
       <div class="dialog-actions"><button value="cancel" class="btn">Cancelar</button><button type="submit" value="default" class="btn primary">Crear lote</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="parameters-dialog">
+    <form method="dialog" id="parameters-form">
+      <div class="dialog-head"><div><p class="eyebrow">CONFIGURACIÓN DE PRODUCCIÓN</p><h2>Parámetros base</h2><p class="dialog-intro">Se aplican únicamente a órdenes nuevas; los lotes existentes conservan su copia.</p></div><button value="cancel" class="icon-button" aria-label="Cerrar">×</button></div>
+      <div class="parameter-table-wrap" id="base-parameter-fields"></div>
+      <p class="validation-message" id="parameters-validation"></p>
+      <div class="dialog-actions"><button type="button" class="btn" id="reset-production-defaults">Restablecer valores base</button><button value="cancel" class="btn">Cancelar</button><button type="submit" value="default" class="btn primary">Guardar</button></div>
     </form>
   </dialog>
 
