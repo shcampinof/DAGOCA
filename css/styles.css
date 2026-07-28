@@ -269,9 +269,294 @@ td code { color: var(--green); font: 500 10px "IBM Plex Mono", Consolas, monospa
 .drawer-head { display: flex; justify-content: space-between; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
 .drawer-head h2 { margin: 4px 0 0; }
 .detail-hero { display: grid; grid-template-columns: 100px 1fr; gap: 16px; align-items: center; padding: 20px 0; }
-.tank-large { position: relative; width: 90px; height: 120px; overflow: hidden; border: 3px solid var(--muted); border-radius: 8px 8px 27px 27px; }
-.tank-large .level { position: absolute; inset: auto 0 0; background: var(--amber); }
-.detail-status { color: var(--green); font: 500 11px "IBM Plex Mono", Consolas, monospace; }
+.detail-visual {
+  --detail-steel-dark: #53656e;
+  --detail-steel-mid: #aebbc1;
+  --detail-steel-light: #f7f9fa;
+  width: 94px;
+  height: 120px;
+  position: relative;
+  justify-self: center;
+  filter: drop-shadow(2px 4px 3px rgb(35 51 59 / 22%));
+}
+.detail-vessel-dome,
+.detail-vessel-shell,
+.detail-vessel-bottom {
+  width: 72px;
+  position: absolute;
+  left: 11px;
+  border-inline: 3px solid var(--detail-steel-dark);
+  background: linear-gradient(90deg, #87969d, #edf1f3 20%, #aebbc1 47%, #fafbfc 68%, #7d8e96);
+}
+.detail-vessel-dome {
+  top: 6px;
+  height: 18px;
+  border: 3px solid var(--detail-steel-dark);
+  border-bottom: 0;
+  border-radius: 50% 50% 4px 4px / 100% 100% 4px 4px;
+}
+.detail-vessel-shell {
+  top: 22px;
+  height: 69px;
+  overflow: hidden;
+}
+.detail-vessel-bottom {
+  top: 90px;
+  height: 17px;
+  border: 3px solid var(--detail-steel-dark);
+  border-top: 0;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+}
+.detail-mash-tun .detail-vessel-bottom,
+.detail-kettle .detail-vessel-bottom {
+  height: 12px;
+  border-radius: 0 0 11px 11px;
+}
+.detail-cellar .detail-vessel-bottom {
+  height: 22px;
+  background: linear-gradient(135deg, #89989f 0 48%, #e6ebed 50%);
+  clip-path: polygon(0 0, 100% 0, 55% 100%, 45% 100%);
+}
+.detail-vessel-legs {
+  position: absolute;
+  inset: auto 18px 0;
+  display: flex;
+  justify-content: space-between;
+}
+.detail-vessel-legs > i {
+  width: 6px;
+  height: 14px;
+  border-inline: 1px solid var(--detail-steel-dark);
+  background: linear-gradient(90deg, #7d8d95, #edf1f2);
+}
+.detail-level {
+  position: absolute;
+  inset: auto 0 0;
+  opacity: .72;
+  box-shadow: inset 0 2px rgb(255 255 255 / 45%);
+}
+.detail-visual.liquid-water .detail-level { background: #6ec6e8; }
+.detail-visual.liquid-wort .detail-level { background: #c78a37; }
+.detail-visual.liquid-beer .detail-level { background: #dfad42; }
+.detail-steel-highlight {
+  width: 11px;
+  height: 100%;
+  position: absolute;
+  left: 16px;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 70%), transparent);
+}
+.detail-vessel-internals {
+  position: absolute;
+  z-index: 2;
+}
+.detail-vessel-internals.filter-bed,
+.detail-vessel-internals.false-bottom,
+.detail-vessel-internals.final-filter {
+  inset: auto 5px 10px;
+  height: 16px;
+  border-block: 2px solid #52656e;
+  background: repeating-linear-gradient(90deg, #596c75 0 2px, transparent 2px 7px);
+}
+.detail-lauter-tun .false-bottom { bottom: 7px; height: 6px; }
+.detail-filtered-receiver .final-filter {
+  inset: 7px 24px 7px auto;
+  width: 10px;
+  height: auto;
+  border: 1px solid #52656e;
+}
+.detail-vessel-internals.agitator-shaft {
+  top: 0;
+  left: 34px;
+  width: 4px;
+  height: 56px;
+  background: #52656e;
+}
+.detail-vessel-internals.agitator-shaft::before {
+  content: "";
+  width: 25px;
+  height: 6px;
+  position: absolute;
+  left: -10px;
+  bottom: 2px;
+  border-radius: 50%;
+  background: #52656e;
+}
+.detail-vessel-internals.agitator-shaft > i {
+  width: 24px;
+  height: 10px;
+  position: absolute;
+  left: -10px;
+  top: 4px;
+  border: 2px solid #52656e;
+  border-radius: 50%;
+}
+.detail-vessel-internals.kettle-coil {
+  inset: 34px 10px auto;
+  height: 14px;
+  border-block: 3px solid #52656e;
+  transform: skewX(-20deg);
+}
+.detail-exchanger {
+  height: 92px;
+  align-self: center;
+  background: linear-gradient(90deg, #a3b0b6, #f7f9fa 42%, #8999a1);
+  clip-path: polygon(8% 8%, 92% 8%, 100% 50%, 92% 92%, 8% 92%, 0 50%);
+}
+.detail-exchanger svg { width: 100%; height: 100%; }
+.detail-exchanger-frame { fill: transparent; stroke: #50636c; stroke-width: 4; }
+.detail-exchanger-plates { fill: none; stroke: #748992; stroke-width: 3; }
+.detail-exchanger-cold { fill: none; stroke: #087f9d; stroke-width: 3; stroke-dasharray: 8 5; }
+.detail-pump { height: 94px; align-self: center; }
+.detail-pump-volute {
+  width: 64px;
+  height: 64px;
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  border: 5px solid var(--detail-steel-dark);
+  border-radius: 50%;
+  background: radial-gradient(circle at 37% 34%, #f9fafb 0 15%, #c2ccd0 44%, #819199 100%);
+  box-shadow: inset 0 0 0 6px #e2e8ea;
+}
+.detail-pump-volute::after {
+  content: "";
+  position: absolute;
+  top: 18px;
+  right: -25px;
+  border-width: 13px 0 13px 22px;
+  border-style: solid;
+  border-color: transparent transparent transparent var(--detail-steel-dark);
+}
+.detail-pump-volute > i {
+  width: 20px;
+  height: 20px;
+  position: absolute;
+  inset: 17px;
+  border: 4px solid #31677b;
+  border-radius: 50%;
+}
+.detail-pump-base {
+  width: 88px;
+  height: 11px;
+  position: absolute;
+  left: 3px;
+  bottom: 3px;
+  border: 3px solid var(--detail-steel-dark);
+  background: linear-gradient(#dce4e7, #8999a1);
+}
+.detail-pump.run .detail-pump-volute { border-color: var(--green); }
+.detail-pump.run .detail-pump-volute > i { animation: spin-pulse 1.8s linear infinite; }
+.detail-valve { height: 94px; align-self: center; }
+.detail-valve > span { position: absolute; inset: 19px 5px auto; height: 48px; }
+.detail-valve > span::before,
+.detail-valve > span::after {
+  content: "";
+  width: 27px;
+  height: 5px;
+  position: absolute;
+  top: 22px;
+  background: var(--detail-steel-dark);
+}
+.detail-valve > span::before { left: 0; }
+.detail-valve > span::after { right: 0; }
+.detail-valve > span > i {
+  width: 0;
+  height: 0;
+  position: absolute;
+  top: 7px;
+  border-block: 17px solid transparent;
+}
+.detail-valve > span > i:first-child { left: 20px; border-left: 26px solid #9e3139; }
+.detail-valve > span > i:last-child { right: 20px; border-right: 26px solid #9e3139; }
+.detail-valve.open > span > i:first-child { border-left-color: #16845f; }
+.detail-valve.open > span > i:last-child { border-right-color: #16845f; }
+.detail-valve > b {
+  position: absolute;
+  inset: auto 0 0;
+  font: 700 11px "IBM Plex Mono", Consolas, monospace;
+  text-align: center;
+}
+.detail-agitator { height: 110px; align-self: center; }
+.detail-motor {
+  width: 58px;
+  height: 42px;
+  position: absolute;
+  top: 0;
+  left: 18px;
+  border: 4px solid var(--detail-steel-dark);
+  border-radius: 7px;
+  background: repeating-linear-gradient(90deg, #9aa8ae 0 5px, #e5eaec 5px 9px);
+}
+.detail-motor > i {
+  width: 16px;
+  height: 16px;
+  position: absolute;
+  inset: 9px 17px;
+  border: 3px solid #33697c;
+  border-radius: 50%;
+}
+.detail-shaft { width: 5px; height: 51px; position: absolute; left: 45px; top: 41px; background: var(--detail-steel-dark); }
+.detail-impeller {
+  width: 58px;
+  height: 8px;
+  position: absolute;
+  left: 18px;
+  top: 87px;
+  border-radius: 50%;
+  background: var(--detail-steel-dark);
+}
+.detail-agitator.run .detail-impeller { animation: spin-pulse 1.2s linear infinite; }
+.detail-bottling {
+  height: 100px;
+  align-self: center;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 7px;
+  background: linear-gradient(#9baab1, #edf1f3 42%, #87979f);
+}
+.detail-filler-head { position: absolute; inset: 10px 8px auto; height: 10px; border: 3px solid var(--detail-steel-dark); background: #d8e0e3; }
+.detail-bottling > i { width: 17px; height: 51px; margin-bottom: 13px; border: 3px solid var(--detail-steel-dark); border-radius: 7px 7px 2px 2px; background: linear-gradient(90deg, #adb9be, #f5f7f8 52%, #87979f); }
+.detail-conveyor { position: absolute; inset: auto 4px 3px; height: 12px; border: 3px solid var(--detail-steel-dark); background: repeating-linear-gradient(90deg, #71838c 0 5px, #d7dfe2 5px 11px); }
+.detail-cip {
+  height: 92px;
+  align-self: center;
+  border: 4px double #23778c;
+  background: linear-gradient(90deg, #a2b2b9, #f1f4f5 42%, #90a1a9);
+  display: grid;
+  place-items: center;
+}
+.detail-cip > span { font: 700 22px "IBM Plex Mono", Consolas, monospace; }
+.detail-cip > i { width: 72px; border-top: 4px dashed #23778c; }
+.detail-cip > b { font-size: 8px; letter-spacing: .08em; }
+.detail-status {
+  min-height: 26px;
+  margin: 0 0 8px;
+  padding: 5px 7px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-left: 4px solid #7b8a92;
+  background: var(--surface-2);
+  color: var(--text);
+  font: 700 11px "IBM Plex Mono", Consolas, monospace;
+}
+.detail-status > i { width: 8px; height: 8px; border-radius: 50%; background: #7b8a92; }
+.detail-status.state-operating { border-left-color: #16845f; }
+.detail-status.state-operating > i { background: #16845f; box-shadow: 0 0 5px #16845f; }
+.detail-status.state-available { border-left-color: #337aa2; }
+.detail-status.state-available > i { background: #337aa2; }
+.detail-status.state-reserved { border-left-color: #b8860b; }
+.detail-status.state-reserved > i { background: #b8860b; }
+.detail-status.state-cip { border-left-color: #088ca2; }
+.detail-status.state-cip > i { background: #088ca2; }
+.detail-status.state-alarm { border-left-color: #c23b45; }
+.detail-status.state-alarm > i { background: #c23b45; }
+.detail-status.state-dirty { border-left-color: #845738; }
+.detail-status.state-dirty > i { border-radius: 0; background: #845738; }
+.detail-status.state-maintenance { border-left-color: #6f657c; }
+.detail-status.state-maintenance > i { border-radius: 0; background: #6f657c; }
 .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .detail-value { padding: 11px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); }
 .detail-value span, .detail-value strong { display: block; }
@@ -2260,4 +2545,502 @@ td code { font-size: var(--font-sm); }
   .parallel-collector { top: 47px; }
   .fermentation-bank .bank-tank-strip, .maturation-strip { grid-auto-columns: calc((100% - 12px) / 3); }
   .maturation-strip .bank-tank { min-width: 0; }
+}
+
+/* Acabado industrial HMI: conserva la geometría del sinóptico continuo */
+.continuous-synoptic {
+  --steel-dark: #52636c;
+  --steel-edge: #74858e;
+  --steel-mid: #bdc8cd;
+  --steel-light: #f5f8f9;
+  --liquid-water: #6ec6e8;
+  --liquid-wort: #c78a37;
+  --liquid-beer: #dfad42;
+  border-color: #70828b;
+  background: #dbe3e7;
+  box-shadow: 0 9px 24px rgb(31 48 57 / 14%);
+}
+.continuous-synoptic .synoptic-head {
+  border-bottom: 1px solid #172c37;
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 5%) 0 1px, transparent 1px 8px),
+    linear-gradient(180deg, #304d5c, #203844);
+  box-shadow: inset 0 -1px rgb(255 255 255 / 10%);
+}
+.continuous-synoptic .general-state {
+  border-color: #7d939e;
+  background: linear-gradient(180deg, rgb(255 255 255 / 10%), rgb(0 0 0 / 8%));
+  box-shadow: inset 0 1px rgb(255 255 255 / 10%);
+}
+.continuous-synoptic .synoptic-legend {
+  border-bottom-color: #9dacb3;
+  background: linear-gradient(#f4f7f8, #e5ebee);
+  box-shadow: inset 0 1px #fff, inset 0 -1px rgb(70 88 97 / 8%);
+}
+.continuous-synoptic .synoptic-canvas {
+  background-color: #dce4e8;
+  background-image:
+    linear-gradient(rgb(69 91 102 / 5%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(69 91 102 / 5%) 1px, transparent 1px),
+    linear-gradient(145deg, rgb(255 255 255 / 24%), transparent 42%);
+  background-size: 32px 32px, 32px 32px, 100% 100%;
+}
+.continuous-synoptic .synoptic-area {
+  border-color: #95a4ab;
+  background:
+    linear-gradient(115deg, rgb(255 255 255 / 36%), transparent 28%),
+    linear-gradient(180deg, rgb(240 244 246 / 72%), rgb(210 220 225 / 64%));
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 86%),
+    inset 0 -1px rgb(81 99 108 / 10%),
+    0 2px 5px rgb(49 65 73 / 9%);
+}
+.continuous-synoptic .synoptic-area > h3,
+.continuous-synoptic .bank-title {
+  border-bottom: 1px solid #9caab1;
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 34%), transparent 45%),
+    linear-gradient(#dce4e8, #bcc9cf);
+  box-shadow: inset 0 1px #f8fafb;
+  color: #233d4a;
+  text-shadow: 0 1px rgb(255 255 255 / 70%);
+}
+
+.continuous-synoptic .synoptic-equipment {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.continuous-synoptic .synoptic-equipment:hover {
+  border-color: #7c929d;
+  background: rgb(248 251 252 / 54%);
+  box-shadow: inset 0 1px #fff, 0 2px 8px rgb(31 60 73 / 14%);
+}
+.continuous-synoptic .synoptic-equipment > strong,
+.continuous-synoptic .bank-tank > strong {
+  color: #18313d;
+  text-shadow: 0 1px #fff;
+}
+.continuous-synoptic .synoptic-name { color: #304954; }
+.continuous-synoptic .synoptic-value {
+  min-width: 74px;
+  padding: 3px 7px;
+  border: 1px solid #9fadb4;
+  background: linear-gradient(#f8fafb, #dfe6e9);
+  box-shadow: inset 0 1px #fff;
+}
+
+.continuous-synoptic .vessel-symbol {
+  width: 70px;
+  height: 78px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  filter: drop-shadow(2px 3px 2px rgb(45 59 66 / 22%));
+}
+.continuous-synoptic .vessel-dome,
+.continuous-synoptic .vessel-shell,
+.continuous-synoptic .vessel-bottom {
+  position: absolute;
+  left: 8px;
+  width: 54px;
+  border-inline: 2px solid var(--steel-dark);
+  background:
+    linear-gradient(90deg, #8e9ca3 0%, #e9eef0 18%, #b3c0c6 42%, #f8fafb 63%, #87979f 100%);
+}
+.continuous-synoptic .vessel-dome {
+  top: 4px;
+  height: 13px;
+  border: 2px solid var(--steel-dark);
+  border-bottom: 0;
+  border-radius: 50% 50% 5px 5px / 100% 100% 5px 5px;
+}
+.continuous-synoptic .vessel-shell {
+  top: 15px;
+  height: 47px;
+  overflow: hidden;
+}
+.continuous-synoptic .vessel-bottom {
+  top: 61px;
+  height: 11px;
+  border: 2px solid var(--steel-dark);
+  border-top: 0;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+}
+.continuous-synoptic .role-mash-tun .vessel-bottom,
+.continuous-synoptic .role-kettle .vessel-bottom {
+  height: 8px;
+  border-radius: 0 0 10px 10px;
+}
+.continuous-synoptic .role-storage .vessel-shell {
+  border-radius: 3px;
+}
+.continuous-synoptic .vessel-legs,
+.continuous-synoptic .bank-legs {
+  position: absolute;
+  inset: auto 13px 0;
+  display: flex;
+  justify-content: space-between;
+}
+.continuous-synoptic .vessel-legs > i,
+.continuous-synoptic .bank-legs > i {
+  width: 4px;
+  height: 8px;
+  display: block;
+  border-inline: 1px solid var(--steel-dark);
+  background: linear-gradient(90deg, #84939a, #e7ecee);
+}
+.continuous-synoptic .steel-highlight {
+  width: 8px;
+  height: 100%;
+  position: absolute;
+  inset: 0 auto 0 11px;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 68%), transparent);
+  opacity: .8;
+}
+.continuous-synoptic .synoptic-level {
+  position: absolute;
+  inset: auto 0 0;
+  opacity: .72;
+  box-shadow: inset 0 2px rgb(255 255 255 / 42%);
+}
+.continuous-synoptic .liquid-water .synoptic-level { background: var(--liquid-water); }
+.continuous-synoptic .liquid-wort .synoptic-level { background: var(--liquid-wort); }
+.continuous-synoptic .liquid-beer .synoptic-level { background: var(--liquid-beer); }
+.continuous-synoptic .vessel-internals {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+}
+.continuous-synoptic .filter-bed,
+.continuous-synoptic .false-bottom,
+.continuous-synoptic .final-filter {
+  inset: auto 3px 8px;
+  height: 9px;
+  border-block: 2px solid #52656e;
+  background: repeating-linear-gradient(90deg, #5f727b 0 2px, transparent 2px 6px);
+}
+.continuous-synoptic .role-water-filter .filter-bed { height: 17px; }
+.continuous-synoptic .role-lauter-tun .false-bottom { bottom: 5px; height: 5px; }
+.continuous-synoptic .role-filtered-receiver .final-filter {
+  inset: 4px 18px 4px auto;
+  width: 8px;
+  height: auto;
+  border: 1px solid #52656e;
+}
+.continuous-synoptic .agitator-shaft {
+  top: 0;
+  left: 25px;
+  width: 3px;
+  height: 37px;
+  background: #53666f;
+}
+.continuous-synoptic .agitator-shaft::before {
+  content: "";
+  width: 18px;
+  height: 5px;
+  position: absolute;
+  left: -7px;
+  bottom: 2px;
+  border-radius: 50%;
+  background: #53666f;
+}
+.continuous-synoptic .agitator-shaft > i {
+  width: 17px;
+  height: 8px;
+  position: absolute;
+  left: -7px;
+  top: 2px;
+  border: 2px solid #52656e;
+  border-radius: 50%;
+}
+.continuous-synoptic .kettle-coil {
+  inset: 22px 7px auto;
+  height: 11px;
+  border-block: 2px solid #596b73;
+  transform: skewX(-22deg);
+}
+.continuous-synoptic .synoptic-equipment.filter .synoptic-symbol::after { content: none; }
+
+.continuous-synoptic .synoptic-equipment.exchanger { min-width: 142px; }
+.continuous-synoptic .synoptic-equipment.exchanger .exchanger-symbol {
+  width: 112px;
+  height: 74px;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  filter: drop-shadow(2px 3px 2px rgb(45 59 66 / 20%));
+}
+.continuous-synoptic .synoptic-equipment.exchanger svg { width: 112px; height: 74px; }
+.continuous-synoptic .exchanger-frame {
+  fill: transparent;
+  stroke: #52646d;
+  stroke-width: 3;
+}
+.continuous-synoptic .exchanger-plate { stroke: #87979f; stroke-width: 3; }
+.continuous-synoptic .exchanger-flow { stroke: #1683a4; stroke-width: 2; stroke-dasharray: 7 4; }
+.continuous-synoptic .role-plate-exchanger .synoptic-symbol {
+  background: linear-gradient(90deg, #adb9be, #f5f7f8 45%, #9ba9b0);
+  clip-path: polygon(8% 8%, 92% 8%, 100% 50%, 92% 92%, 8% 92%, 0 50%);
+}
+.continuous-synoptic .packaging-symbol {
+  width: 86px;
+  height: 70px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(#9dabb2, #eef2f4 42%, #83949c);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 5px;
+  box-shadow: inset 0 1px #fff, 2px 3px 3px rgb(42 58 66 / 20%);
+}
+.continuous-synoptic .packaging-symbol .filler-head {
+  position: absolute;
+  inset: 8px 8px auto;
+  height: 7px;
+  border: 2px solid #50636c;
+  background: #cbd4d8;
+}
+.continuous-synoptic .packaging-symbol > i {
+  width: 13px;
+  height: 35px;
+  position: relative;
+  z-index: 2;
+  margin-bottom: 8px;
+  border: 2px solid #52656e;
+  border-radius: 5px 5px 2px 2px;
+  background: linear-gradient(90deg, #b5c1c6, #f5f7f8 48%, #8b9ba3);
+}
+.continuous-synoptic .package-conveyor {
+  position: absolute;
+  inset: auto 5px 3px;
+  height: 8px;
+  border: 2px solid #52656e;
+  background: repeating-linear-gradient(90deg, #70828b 0 4px, #cbd4d8 4px 9px);
+}
+
+.continuous-synoptic .synoptic-state,
+.continuous-synoptic .bank-tank > small {
+  border: 1px solid #95a3aa;
+  border-left: 4px solid #7b8a92;
+  background: linear-gradient(#f5f8f9, #dce4e7);
+  box-shadow: inset 0 1px #fff;
+}
+.continuous-synoptic .state-operating .synoptic-state,
+.continuous-synoptic .state-operating.bank-tank > small { border-left-color: #16845f; background: #e5f3ed; }
+.continuous-synoptic .state-available .synoptic-state,
+.continuous-synoptic .state-available.bank-tank > small { border-left-color: #337aa2; background: #e6f0f5; }
+.continuous-synoptic .state-reserved .synoptic-state,
+.continuous-synoptic .state-reserved.bank-tank > small { border-left-color: #b8860b; background: #f7f0dc; }
+.continuous-synoptic .state-cip .synoptic-state,
+.continuous-synoptic .state-cip.bank-tank > small { border-left-color: #088ca2; background: #e2f3f5; }
+.continuous-synoptic .state-dirty .synoptic-state,
+.continuous-synoptic .state-dirty.bank-tank > small { border-left-color: #845738; background: #f2e9e3; }
+.continuous-synoptic .state-maintenance .synoptic-state,
+.continuous-synoptic .state-maintenance.bank-tank > small { border-left-color: #6f657c; background: #eeeaf1; }
+.continuous-synoptic .state-alarm .synoptic-state,
+.continuous-synoptic .state-alarm.bank-tank > small { border-left-color: #c23b45; background: #f8e5e7; }
+
+.continuous-synoptic .synoptic-pipe > i,
+.continuous-synoptic .cold-transfer-route > i,
+.continuous-synoptic .maturation-drop-route > i,
+.continuous-synoptic .parallel-collector i {
+  border-color: #53636b;
+  box-shadow:
+    inset 0 2px rgb(255 255 255 / 43%),
+    inset 0 -2px rgb(53 64 70 / 22%),
+    0 2px 2px rgb(46 59 65 / 17%);
+}
+.continuous-synoptic .synoptic-pipe > i { height: 12px; border-radius: 3px; }
+.continuous-synoptic .synoptic-pipe::after {
+  right: -5px;
+  color: #4a5a62;
+  filter: drop-shadow(0 1px #fff);
+}
+.continuous-synoptic .synoptic-pipe > b,
+.continuous-synoptic .cold-transfer-route > span,
+.continuous-synoptic .cold-transfer-route > b,
+.continuous-synoptic .maturation-drop-route > span,
+.continuous-synoptic .maturation-drop-route > b {
+  border: 1px solid rgb(122 141 150 / 35%);
+  background: rgb(231 237 240 / 88%);
+  box-shadow: 0 1px 2px rgb(50 67 76 / 8%);
+}
+.continuous-synoptic .synoptic-pipe.active > i,
+.continuous-synoptic .cold-transfer-route.active > i,
+.continuous-synoptic .maturation-drop-route.active > i { animation-duration: 2.2s; }
+
+.continuous-synoptic .synoptic-pump {
+  min-height: 62px;
+  grid-template-columns: 35px 1fr;
+  border: 1px solid #82939b;
+  border-left: 3px solid #7f8f96;
+  border-radius: 2px;
+  background: linear-gradient(145deg, rgb(248 250 251 / 90%), rgb(206 216 221 / 88%));
+  box-shadow: inset 0 1px #fff, 0 2px 4px rgb(44 58 65 / 15%);
+}
+.continuous-synoptic .pump-glyph {
+  width: 30px;
+  height: 30px;
+  position: relative;
+  grid-row: 1 / 3;
+  display: block;
+  border: 3px solid #53666f;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 35%, #f8fafb 0 16%, #bbc7cc 45%, #809098 100%);
+  box-shadow: inset 0 0 0 3px #dfe6e9, 1px 2px 2px rgb(45 59 66 / 20%);
+}
+.continuous-synoptic .pump-glyph::after {
+  content: "";
+  position: absolute;
+  top: 7px;
+  right: -11px;
+  border-width: 6px 0 6px 10px;
+  border-style: solid;
+  border-color: transparent transparent transparent #53666f;
+}
+.continuous-synoptic .pump-glyph > i {
+  width: 9px;
+  height: 9px;
+  position: absolute;
+  inset: 8px;
+  border: 2px solid #315e72;
+  border-radius: 50%;
+}
+.continuous-synoptic .pump-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.continuous-synoptic .pump-status > i {
+  width: 7px;
+  height: 7px;
+  display: block;
+  border-radius: 50%;
+  background: #7b8a92;
+}
+.continuous-synoptic .synoptic-pump.run {
+  border-left-color: #16845f;
+  background: linear-gradient(145deg, #f3fbf7, #cfe7dc);
+}
+.continuous-synoptic .synoptic-pump.run .pump-glyph { border-color: #16845f; }
+.continuous-synoptic .synoptic-pump.run .pump-glyph > i { animation: spin-pulse 1.8s linear infinite; }
+.continuous-synoptic .synoptic-pump.run .pump-status > i { background: #16845f; box-shadow: 0 0 5px #16845f; }
+
+.continuous-synoptic .parallel-collector i {
+  height: 11px;
+  border-radius: 3px;
+}
+.continuous-synoptic .parallel-collector span {
+  border: 1px solid #9aa9b0;
+  background: linear-gradient(#f7f9fa, #dce4e7);
+  box-shadow: inset 0 1px #fff;
+}
+.continuous-synoptic .bank-tank {
+  border-color: transparent;
+  border-top-color: transparent;
+  background: transparent;
+}
+.continuous-synoptic .bank-tank:hover {
+  border-color: #83979f;
+  background: rgb(247 250 251 / 52%);
+}
+.continuous-synoptic .tank-branch {
+  width: 8px;
+  height: 17px;
+  position: absolute;
+  top: -7px;
+  left: calc(50% - 4px);
+  border-inline: 2px solid #53636b;
+  background: var(--process-beer);
+  box-shadow: inset 2px 0 rgb(255 255 255 / 34%);
+}
+.continuous-synoptic .tank-branch > i {
+  width: 9px;
+  height: 9px;
+  position: absolute;
+  left: -3px;
+  top: 4px;
+  border: 2px solid #53636b;
+  background: #d4dde1;
+  transform: rotate(45deg);
+}
+.continuous-synoptic .bank-vessel {
+  width: 43px;
+  height: 63px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  filter: drop-shadow(1px 2px 1px rgb(45 59 66 / 24%));
+}
+.continuous-synoptic .bank-dome,
+.continuous-synoptic .bank-shell,
+.continuous-synoptic .bank-cone {
+  position: absolute;
+  left: 5px;
+  width: 33px;
+  border-inline: 2px solid var(--steel-dark);
+  background: linear-gradient(90deg, #87969d, #eef2f3 25%, #b5c1c6 56%, #f7f9fa 72%, #7d8e96);
+}
+.continuous-synoptic .bank-dome {
+  top: 2px;
+  height: 9px;
+  border: 2px solid var(--steel-dark);
+  border-bottom: 0;
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+}
+.continuous-synoptic .bank-shell {
+  top: 10px;
+  height: 34px;
+  overflow: hidden;
+}
+.continuous-synoptic .bank-cone {
+  top: 44px;
+  height: 11px;
+  border: 2px solid var(--steel-dark);
+  border-top: 0;
+  background: linear-gradient(135deg, #8d9ca3 0 48%, #e4e9eb 50%);
+  clip-path: polygon(0 0, 100% 0, 55% 100%, 45% 100%);
+}
+.continuous-synoptic .bank-legs { inset: auto 8px 0; }
+.continuous-synoptic .bank-vessel .synoptic-level {
+  position: absolute;
+  inset: auto 0 0;
+  background: var(--liquid-beer);
+}
+.continuous-synoptic .bank-tank > small {
+  min-height: 22px;
+  padding: 3px 4px;
+}
+.continuous-synoptic .bank-service-lines,
+.continuous-synoptic .thermal-services,
+.continuous-synoptic .cooling-service-lines {
+  border-top-color: #80949e;
+  background: rgb(225 233 236 / 42%);
+}
+.continuous-synoptic .cip-station-symbol > b {
+  border-color: #317386;
+  background:
+    linear-gradient(90deg, #a8b8bf, #eef2f3 35%, #a1b1b8 70%, #e6ecee);
+  box-shadow: inset 0 1px #fff, 2px 3px 4px rgb(39 58 67 / 16%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .continuous-synoptic .synoptic-pipe.active > i,
+  .continuous-synoptic .cold-transfer-route.active > i,
+  .continuous-synoptic .maturation-drop-route.active > i,
+  .continuous-synoptic .synoptic-pump.run .pump-glyph > i,
+  .continuous-synoptic .state-alarm .synoptic-state i,
+  .continuous-synoptic .state-alarm.bank-tank small i,
+  .continuous-synoptic .general-state.state-alarm > i,
+  .detail-pump.run .detail-pump-volute > i,
+  .detail-agitator.run .detail-impeller {
+    animation: none;
+  }
 }

@@ -213,14 +213,57 @@ function synopticReading(equipment) {
   return { label: "Estado", value: equipment.status, unit: "" };
 }
 
+function synopticLiquidClass(tag) {
+  if (["TK-001", "TK-002"].includes(tag)) return "liquid-water";
+  if (["TK-003", "TK-004", "TK-005"].includes(tag)) return "liquid-wort";
+  return "liquid-beer";
+}
+
+function synopticVesselSymbol(equipment) {
+  const level = Number.isFinite(Number(equipment.level))
+    ? Math.max(0, Math.min(100, Number(equipment.level)))
+    : null;
+  const internals = equipment.tag === "TK-001"
+    ? '<span class="vessel-internals filter-bed"></span>'
+    : equipment.tag === "TK-003"
+      ? '<span class="vessel-internals agitator-shaft"><i></i></span>'
+      : equipment.tag === "TK-004"
+        ? '<span class="vessel-internals false-bottom"></span>'
+        : equipment.tag === "TK-005"
+          ? '<span class="vessel-internals kettle-coil"></span>'
+          : equipment.tag === "TK-007"
+            ? '<span class="vessel-internals final-filter"></span>'
+            : "";
+  return `<span class="synoptic-symbol vessel-symbol ${synopticLiquidClass(equipment.tag)}" aria-hidden="true">
+    <span class="vessel-dome"></span>
+    <span class="vessel-shell">${level == null ? "" : `<i class="synoptic-level" style="height:${level}%"></i>`}<i class="steel-highlight"></i>${internals}</span>
+    <span class="vessel-bottom"></span><span class="vessel-legs"><i></i><i></i></span>
+  </span>`;
+}
+
 function synopticEquipment(tag, options = {}) {
   const equipment = simulator.equipment.get(tag);
   const state = synopticState(equipment);
   const reading = synopticReading(equipment);
   const displayTag = equipment.displayTag || equipment.tag;
   const shape = options.exchanger ? "exchanger" : options.filter ? "filter" : options.packaging ? "packaging" : "tank";
-  return `<button class="synoptic-equipment ${shape} state-${state.key}" data-equipment="${tag}" aria-label="${displayTag}, ${equipment.name}, ${state.label}">
-    <span class="synoptic-symbol" aria-hidden="true">${options.exchanger ? `<svg viewBox="0 0 120 72"><path d="M12 11H108L118 36 108 61H12L2 36Z"/><circle cx="60" cy="36" r="22"/><path d="M69 22H58L47 36 58 50H69"/></svg>` : options.packaging ? "<i></i><i></i><i></i>" : `<i class="synoptic-level" style="height:${equipment.level}%"></i>`}</span>
+  const role = {
+    "TK-001": "water-filter",
+    "TK-002": "storage",
+    "TK-003": "mash-tun",
+    "TK-004": "lauter-tun",
+    "TK-005": "kettle",
+    "TK-007": "filtered-receiver",
+    "E-001": "plate-exchanger",
+    "EMB-01": "bottling",
+  }[tag] || "process-vessel";
+  const symbol = options.exchanger
+    ? `<span class="synoptic-symbol exchanger-symbol" aria-hidden="true"><svg viewBox="0 0 132 78"><path class="exchanger-frame" d="M14 8H118L128 39 118 70H14L4 39Z"/><path class="exchanger-plate" d="M39 17L27 61M51 17L39 61M63 17L51 61M75 17L63 61M87 17L75 61M99 17L87 61"/><path class="exchanger-flow" d="M29 27H101M101 51H29"/><circle cx="22" cy="27" r="3"/><circle cx="110" cy="51" r="3"/></svg></span>`
+    : options.packaging
+      ? '<span class="synoptic-symbol packaging-symbol" aria-hidden="true"><span class="filler-head"></span><i></i><i></i><i></i><span class="package-conveyor"></span></span>'
+      : synopticVesselSymbol(equipment);
+  return `<button class="synoptic-equipment ${shape} role-${role} state-${state.key}" data-equipment="${tag}" aria-label="${displayTag}, ${equipment.name}, ${state.label}">
+    ${symbol}
     <strong>${displayTag}</strong><span class="synoptic-name">${equipment.name}</span>
     <span class="synoptic-value"><small>${reading.label}</small><b>${typeof reading.value === "number" ? reading.value.toFixed(reading.unit === "%" ? 0 : 1) : reading.value} ${reading.unit}</b></span>
     <span class="synoptic-state"><i></i>${state.label}</span>
@@ -231,8 +274,13 @@ function synopticEquipment(tag, options = {}) {
 function synopticTank(tag) {
   const equipment = simulator.equipment.get(tag);
   const state = synopticState(equipment);
+  const level = Number.isFinite(Number(equipment.level))
+    ? Math.max(0, Math.min(100, Number(equipment.level)))
+    : null;
+  const valve = tankControlValve(tag);
   return `<button class="bank-tank state-${state.key}" data-equipment="${tag}" aria-label="${tag}, ${state.label}, ${equipment.temperature.toFixed(1)} °C">
-    <span class="bank-vessel" aria-hidden="true"><i style="height:${equipment.level}%"></i></span>
+    <span class="tank-branch" aria-hidden="true"><i title="${valve || "Ramal de proceso"}"></i></span>
+    <span class="bank-vessel liquid-beer" aria-hidden="true"><span class="bank-dome"></span><span class="bank-shell">${level == null ? "" : `<i class="synoptic-level" style="height:${level}%"></i>`}<i class="steel-highlight"></i></span><span class="bank-cone"></span><span class="bank-legs"><i></i><i></i></span></span>
     <strong>${equipment.displayTag || tag}</strong><span>${equipment.temperature.toFixed(1)} °C</span>
     <small><i></i>${state.label}</small><em>${equipment.batchId || "Sin lote"}</em>
   </button>`;
@@ -242,7 +290,7 @@ function synopticPump(tag, service, active = false) {
   const pump = simulator.equipment.get(tag);
   const running = pump.status === "Operando";
   return `<button class="synoptic-pump ${running ? "run" : ""} ${active ? "route-active" : ""}" data-equipment="${tag}" aria-label="${tag}, ${service}, ${pump.status}">
-    <i aria-hidden="true">▶</i><strong>${tag}</strong><span>${pump.status}</span><small>${service}</small>
+    <span class="pump-glyph" aria-hidden="true"><i></i></span><strong>${tag}</strong><span class="pump-status"><i></i>${pump.status}</span><small>${service}</small>
   </button>`;
 }
 
@@ -930,6 +978,108 @@ function applyAccessControl() {
   $("#simulation-badge").classList.toggle("active", simulator.mode === "simulation");
 }
 
+function equipmentDetailVisual(equipment) {
+  const tag = equipment.tag;
+  if (equipment.type === "pump") {
+    return `<div class="detail-visual detail-pump ${equipment.status === "Operando" ? "run" : ""}" aria-hidden="true"><span class="detail-pump-volute"><i></i></span><span class="detail-pump-base"></span></div>`;
+  }
+  if (equipment.type === "cooler") {
+    return `<div class="detail-visual detail-exchanger" aria-hidden="true"><svg viewBox="0 0 132 96"><path class="detail-exchanger-frame" d="M15 12H117L128 48 117 84H15L4 48Z"/><path class="detail-exchanger-plates" d="M37 22L25 74M49 22L37 74M61 22L49 74M73 22L61 74M85 22L73 74M97 22L85 74M109 22L97 74"/><path class="detail-exchanger-cold" d="M26 33H108M108 63H26"/><circle cx="20" cy="33" r="3"/><circle cx="114" cy="63" r="3"/></svg></div>`;
+  }
+  if (equipment.type === "valve") {
+    return `<div class="detail-visual detail-valve ${equipment.position === "Abierta" ? "open" : "closed"}" aria-hidden="true"><span><i></i><i></i></span><b>${equipment.position || "Sin posición"}</b></div>`;
+  }
+  if (equipment.type === "agitator") {
+    return `<div class="detail-visual detail-agitator ${equipment.status === "Operando" ? "run" : ""}" aria-hidden="true"><span class="detail-motor"><i></i></span><span class="detail-shaft"></span><span class="detail-impeller"></span></div>`;
+  }
+  if (equipment.type === "bottling") {
+    return `<div class="detail-visual detail-bottling" aria-hidden="true"><span class="detail-filler-head"></span><i></i><i></i><i></i><span class="detail-conveyor"></span></div>`;
+  }
+  if (equipment.type === "cip") {
+    return `<div class="detail-visual detail-cip" aria-hidden="true"><span>CIP</span><i></i><b>RETORNO</b></div>`;
+  }
+
+  const level = Number.isFinite(Number(equipment.level))
+    ? Math.max(0, Math.min(100, Number(equipment.level)))
+    : null;
+  const liquid = ["TK-001", "TK-002"].includes(tag) ? "liquid-water" : ["TK-003", "TK-004", "TK-005"].includes(tag) ? "liquid-wort" : "liquid-beer";
+  const role = tag === "TK-001" ? "water-filter"
+    : tag === "TK-002" ? "storage"
+      : tag === "TK-003" ? "mash-tun"
+        : tag === "TK-004" ? "lauter-tun"
+          : tag === "TK-005" ? "kettle"
+            : tag === "TK-007" ? "filtered-receiver"
+              : tag.startsWith("TK-006") || tag.startsWith("TK-008") ? "cellar"
+                : "tank";
+  const internals = role === "water-filter" ? '<span class="detail-vessel-internals filter-bed"></span>'
+    : role === "mash-tun" ? '<span class="detail-vessel-internals agitator-shaft"><i></i></span>'
+      : role === "lauter-tun" ? '<span class="detail-vessel-internals false-bottom"></span>'
+        : role === "kettle" ? '<span class="detail-vessel-internals kettle-coil"></span>'
+          : role === "filtered-receiver" ? '<span class="detail-vessel-internals final-filter"></span>'
+            : "";
+  return `<div class="detail-visual detail-vessel detail-${role} ${liquid}" aria-hidden="true">
+    <span class="detail-vessel-dome"></span>
+    <span class="detail-vessel-shell">${level == null ? "" : `<i class="detail-level" style="height:${level}%"></i>`}<i class="detail-steel-highlight"></i>${internals}</span>
+    <span class="detail-vessel-bottom"></span><span class="detail-vessel-legs"><i></i><i></i></span>
+  </div>`;
+}
+
+function equipmentDetailVariables(equipment) {
+  const variables = [];
+  const add = (label, value, unit = "") => {
+    if (value != null) variables.push([label, value, unit]);
+  };
+  const tag = equipment.tag;
+
+  if (tag === "TK-001") {
+    add("Nivel", equipment.level, "%");
+  } else if (tag === "TK-002") {
+    add("Nivel", equipment.level, "%");
+    add("Temperatura", equipment.temperature, "°C");
+  } else if (tag === "TK-003") {
+    add("Nivel", equipment.level, "%");
+    add("Temperatura", equipment.temperature, "°C");
+    add("Setpoint", equipment.setpoint, "°C");
+    add("pH", equipment.ph, "pH");
+  } else if (tag === "TK-004") {
+    add("Nivel", equipment.level, "%");
+    add("Presión", equipment.pressure, "bar");
+  } else if (tag === "TK-005") {
+    add("Nivel", equipment.level, "%");
+    add("Temperatura", equipment.temperature, "°C");
+    add("Setpoint", equipment.setpoint, "°C");
+  } else if (tag === "E-001") {
+    add("Temperatura de entrada", equipment.temperatureIn, "°C");
+    add("Temperatura de salida", equipment.temperature, "°C");
+    add("Setpoint de salida", equipment.setpoint, "°C");
+    add("Presión", equipment.pressure, "bar");
+  } else if (tag === "TK-007") {
+    add("Nivel", equipment.level, "%");
+    add("Turbidez de entrada", equipment.turbidityIn, "NTU");
+    add("Turbidez de salida", equipment.turbidity, "NTU");
+    add("Presión de entrada", equipment.pressureIn, "bar");
+    add("Presión de salida", equipment.pressureOut, "bar");
+    add("ΔP filtro", equipment.differentialPressure, "bar");
+  } else if (tag.startsWith("TK-006") || tag.startsWith("TK-008")) {
+    add("Nivel", equipment.level, "%");
+    add("Temperatura", equipment.temperature, "°C");
+    add("Setpoint", equipment.setpoint, "°C");
+    add("Presión", equipment.pressure, "bar");
+    if (tag.startsWith("TK-006")) add("Densidad", equipment.density, "SG");
+  } else if (equipment.type === "pump" || equipment.type === "agitator") {
+    add("Estado", equipment.status);
+    add("Arranques", equipment.starts);
+    add("Horas de operación", equipment.operatingHours, "h");
+  } else if (equipment.type === "valve") {
+    add("Posición", equipment.position);
+    add("Estado", equipment.status);
+  } else if (equipment.type === "bottling" || equipment.type === "cip") {
+    add("Estado", equipment.status);
+    add("Horas de operación", equipment.operatingHours, "h");
+  }
+  return variables;
+}
+
 function openEquipment(tag) {
   const equipment = simulator.equipment.get(tag);
   if (!equipment) return;
@@ -937,22 +1087,8 @@ function openEquipment(tag) {
   $("#drawer-title").textContent = `${equipment.displayTag || equipment.tag} · ${equipment.name}`;
   const related = alarms.alarms.filter(alarm => alarm.equipment === equipment.tag || alarm.tag.includes(equipment.tag)).slice(0, 3);
   const activeBatch = simulator.batches.find(batch => batch.id === equipment.batchId);
-  const processVariables = [];
-  if (["tank", "filter"].includes(equipment.type)) processVariables.push(["Nivel", equipment.level, "%"]);
-  if (["tank", "filter", "cooler"].includes(equipment.type)) {
-    processVariables.push(["Temperatura", equipment.temperature, "°C"], ["Setpoint", equipment.setpoint, "°C"]);
-  }
-  if (["tank", "filter", "cooler"].includes(equipment.type)) processVariables.push(["Presión", equipment.pressure, "bar"]);
-  processVariables.push(
-    ["pH", equipment.ph, "pH"], ["Densidad", equipment.density, "SG"],
-    ["Turbidez", equipment.turbidity, "NTU"], ["ΔP filtro", equipment.differentialPressure, "bar"],
-    ["Posición", equipment.position, ""]
-  );
-  if (["pump", "agitator"].includes(equipment.type)) {
-    processVariables.push(["Estado", equipment.status, ""], ["Arranques", equipment.starts, ""]);
-  }
-  if (["bottling", "cip"].includes(equipment.type)) processVariables.push(["Estado", equipment.status, ""]);
-  const variables = processVariables.filter(([, value]) => value != null);
+  const variables = equipmentDetailVariables(equipment);
+  const detailState = synopticState(equipment);
   const cellarDetails = cellarOperationalDetails(equipment);
   const association = manualAssociations[equipment.tag] || {};
   const canOperateValve = equipment.type === "valve" || Boolean(association.valve);
@@ -962,8 +1098,8 @@ function openEquipment(tag) {
     canOperateDrive ? `<button class="btn" data-manual-command="drive" data-target="${equipment.tag}" ${!["manual", "simulation"].includes(simulator.mode) || simulator.emergency || !equipment.clean ? "disabled" : ""}>${equipment.type === "agitator" ? "Conmutar agitador" : "Conmutar bomba"}</button>` : ""
   ].filter(Boolean).join("");
   $("#drawer-content").innerHTML = `<div class="detail-hero">
-    <div class="tank-large"><i class="level" style="height:${equipment.level}%"></i></div>
-    <div><p class="detail-status">● ${equipment.status}</p><p class="detail-meta">Servicio: ${equipmentServices[equipment.tag] || equipment.service}<br>Lote: ${equipment.batchId || "Sin asignar"} · Producto: ${activeBatch?.product || activeBatch?.recipe || "Sin producto"}<br>CIP: ${equipment.cipStatus} · Modo: ${simulator.mode.toUpperCase()}</p>${qualityLabel(equipment.quality)}</div>
+    ${equipmentDetailVisual(equipment)}
+    <div><p class="detail-status state-${detailState.key}"><i></i>${detailState.label}</p><p class="detail-meta">Servicio: ${equipmentServices[equipment.tag] || equipment.service}<br>Lote: ${equipment.batchId || "Sin asignar"} · Producto: ${activeBatch?.product || activeBatch?.recipe || "Sin producto"}<br>CIP: ${equipment.cipStatus} · Modo: ${simulator.mode.toUpperCase()}</p>${qualityLabel(equipment.quality)}</div>
   </div>
   <div class="detail-grid">${variables.map(([label, value, unit]) => detailValue(label, `${value} ${unit}`)).join("")}${activeBatch ? detailValue("Tiempo en etapa", formatTime(simulator.stageProgress)) : ""}${detailValue("Último mantenimiento", equipment.lastMaintenance)}</div>
   ${cellarDetails}
@@ -1045,7 +1181,9 @@ function manualCommand(command, sourceTag) {
   if (command === "valve") {
     const valve = source.type === "valve" ? source : simulator.equipment.get(manualAssociations[source.tag]?.valve);
     if (!valve) return interlockReject("No existe una válvula operable asociada", source.tag, "Verificar la narrativa de control");
-    if (["TV-105", "TV-107"].includes(valve.tag) && ["TK-003", "TK-005"].includes(source.tag) && source.level < 15) return interlockReject("Nivel insuficiente para habilitar vapor", source.tag, "Alcanzar el nivel mínimo");
+    const steamVesselTag = { "TV-105": "TK-003", "TV-107": "TK-005" }[valve.tag];
+    const steamVessel = steamVesselTag ? simulator.equipment.get(steamVesselTag) : null;
+    if (steamVessel && steamVessel.level < 15) return interlockReject("Nivel insuficiente para habilitar vapor", `${steamVessel.tag} / ${valve.tag}`, "Alcanzar el nivel mínimo");
     valve.position = valve.position === "Abierta" ? "Cerrada" : "Abierta";
     valve.status = valve.position === "Abierta" ? "Operando" : "Disponible";
     simulator.log(`${valve.tag} ${valve.position.toLowerCase()} por comando manual desde ${source.tag}`);
@@ -1053,9 +1191,15 @@ function manualCommand(command, sourceTag) {
   } else {
     const drive = ["pump", "agitator"].includes(source.type) ? source : simulator.equipment.get(manualAssociations[source.tag]?.pump);
     if (!drive) return interlockReject("No existe un accionamiento operable asociado", source.tag, "Verificar la narrativa de control");
-    if (drive.tag === "P-001" && simulator.equipment.get("TK-002").level <= 5) return interlockReject("TK-002 sin nivel de succión", "P-001 / TK-002", "Llenar TK-002 y confirmar válvula de succión");
+    const fixedSuctionTag = { "P-001": "TK-002", "P-002": "TK-004", "P-003": "TK-005" }[drive.tag];
+    const selectedMaturationTag = source.tag.startsWith("TK-008") ? source.tag : simulator.activeBatch?.maturation;
+    const suctionTag = drive.tag === "P-004" ? selectedMaturationTag : fixedSuctionTag;
+    const suction = suctionTag ? simulator.equipment.get(suctionTag) : null;
+    if (drive.type === "pump" && drive.tag !== "P-000" && (!suction || suction.level <= 5)) {
+      return interlockReject("Equipo de succión sin nivel o ruta sin seleccionar", `${drive.tag} / ${suctionTag || "origen no seleccionado"}`, "Confirmar selección, nivel y válvula de succión");
+    }
+    if (drive.tag === "AG1" && simulator.equipment.get("TK-003").level < 15) return interlockReject("Nivel insuficiente para agitación", "AG1 / TK-003", "Alcanzar el nivel mínimo");
     if (drive.tag === "P-003" && simulator.equipment.get("E-001").temperature >= 35) return interlockReject("Mosto demasiado caliente para fermentación", "E-001 / P-003", "Reducir TT-109 por debajo de 35 °C");
-    if (drive.tag === "P-004" && source.level <= 5) return interlockReject("Madurador sin nivel de succión", `P-004 / ${source.tag}`, "Confirmar nivel y ruta hacia TK-007");
     if (drive.tag === "P-004" && !simulator.equipment.get("TK-007").available) return interlockReject("TK-007 no disponible", "P-004 / TK-007", "Confirmar limpieza, cierre y disponibilidad de TK-007");
     drive.status = drive.status === "Operando" ? "Detenida" : "Operando";
     if (drive.status === "Operando") drive.starts++;
